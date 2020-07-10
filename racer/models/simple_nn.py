@@ -47,6 +47,9 @@ class ConvNet(nn.Module):
     def forward(self, x):
         return self.net(x)
 
+    def output_size(self, input_shape):
+        return self(torch.zeros(*input_shape)).flatten().shape[0]
+
 
 class SimpleNN(nn.Module):
     def __init__(self, *, hidden_layers, hidden_size, in_size):
@@ -61,12 +64,9 @@ class SimpleNN(nn.Module):
             for i in range(hidden_layers - 1):
                 layers.append(nn.Linear(hidden_size, hidden_size))
                 layers.append(nn.ReLU())
-        layers.append(nn.Linear(hidden_size if hidden_layers == 0 else in_size, 3))
+        layers.append(nn.Linear(hidden_size if hidden_layers != 0 else in_size, 3))
 
         self.sq = nn.Sequential(*layers)
-
-    def output_size(self, input_shape):
-        return self(torch.zeros(*input_shape)).flatten().shape[0]
 
     def forward(self, x):
         x = self.sq(x)
@@ -89,11 +89,12 @@ class NNAgent(Agent):
         self.net = SimpleNN(
             hidden_layers=hidden_layers,
             hidden_size=hidden_size,
-            in_size=(1, 1, image_size(), image_size()),
+            in_size=self.image_net.output_size((1, 1, image_size(), image_size()))
+            + feature_size(),
         )
 
     def act(self, image, other) -> np.ndarray:
-        with torch.no_grad:
-            image_features = self.image_net(image).flatten()
-            both = torch.cat([image_features, other])
+        with torch.no_grad():
+            image_features = self.image_net(torch.tensor(image)).flatten()
+            both = torch.cat([image_features, torch.tensor(other)])
             return self.net(both).numpy()

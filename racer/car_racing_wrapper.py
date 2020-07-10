@@ -23,9 +23,8 @@ class CarRacingWrapper(CarRacing):
         self.enable_abs = enable_abs
         self.enable_steering = enable_steering
         self.image_scaling = image_scaling
-        self.reset()
 
-    def render(self, mode='state_pixels'):
+    def render(self, mode='human'):
         assert mode in ['human', 'state_pixels', 'rgb_array']
         if self.viewer is None:
             from gym.envs.classic_control import rendering
@@ -111,12 +110,11 @@ class CarRacingWrapper(CarRacing):
         if self.enable_steering:
             vectors.append(np.array([self.car.wheels[0].joint.angle]))
 
-        image = skimage.color.rgb2gray(self.state)
+        image = skimage.color.rgb2gray(self.state.astype(np.float32))
         if self.image_scaling != 1:
             assert (len(image) % self.image_scaling == 0 and len(image[0]) % self.image_scaling == 0)
             image = skimage.transform.downscale_local_mean(
                 image, (self.image_scaling, self.image_scaling)
             )
 
-        vectors.append(image.flatten())
-        return np.concatenate(vectors, axis=0)
+        return image.reshape(1, 1, image.shape[0], image.shape[0]), np.concatenate(vectors, axis=0).astype(np.float32)

@@ -1,6 +1,10 @@
 import numpy as np
 from abc import abstractmethod, ABC
 
+from tqdm import tqdm
+
+from racer.car_racing_env import get_env
+
 
 class Agent(ABC):
     @abstractmethod
@@ -17,6 +21,31 @@ class Agent(ABC):
         """
         ...
 
-    def evaluate(self) -> float:
-        """ Evaluate this agent on the environment, and return it's fitness """
-        pass
+    def evaluate(self, visible) -> float:
+        """ Evaluate this agent on the environment, and return its fitness
+            :param visible: whether to render the run in a window
+        """
+
+        env = get_env()
+        env.reset()
+        env.step(action=None)
+        done = False
+        neg_reward_count = 0
+        progress = tqdm()
+        while not done:
+            action = self.act(*env.get_state())
+            _, step_reward, done, _ = env.step(action=action)
+            if step_reward < 0:
+                neg_reward_count += 1
+            else:
+                neg_reward_count = 0
+            if neg_reward_count > 500:
+                print("Stopping early")
+                break
+            #print("{:.4f}\t {:.4f}".format(env.reward, step_reward))
+            if visible:
+                env.render(mode='human')
+            progress.update()
+
+
+
