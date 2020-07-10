@@ -31,7 +31,7 @@ class SimpleNN(nn.Module):
                 layers.append(nn.Linear(hidden_size, hidden_size))
                 layers.append(nn.ReLU())
         layers.append(
-            hidden_size if hidden_layers else car_racing_env.feature_size(), 3
+            nn.Linear(hidden_size if hidden_layers else car_racing_env.feature_size(), 3)
         )
 
         self.sq = nn.Sequential(*layers)
