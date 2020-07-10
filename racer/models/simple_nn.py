@@ -78,7 +78,7 @@ class SimpleNN(nn.Module):
 class NNAgent(Agent):
     def parameters(self):
         return (
-            p.numpy()
+            p.detach().numpy()
             for p in chain(self.image_net.parameters(), self.net.parameters())
             if p.requires_grad
         )

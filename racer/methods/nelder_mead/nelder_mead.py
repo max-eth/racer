@@ -3,18 +3,31 @@ import numpy as np
 from tqdm import tqdm
 import functools
 from racer.car_racing_env import car_racing_env
+from racer.models.simple_nn import simple_nn, NNAgent
 from racer.utils import setup_sacred_experiment
-ex = Experiment("nelder_mead", ingredients=[car_racing_env],)
+
+ex = Experiment("nelder_mead", ingredients=[car_racing_env, simple_nn],)
 setup_sacred_experiment(ex)
 
 
+@ex.config
+def nm_config():
+    alpha = 0.7
+    beta = 0.85
+    gamma = 0.4
+    sigma = 0.5
+
+
 class NelderMead:
+
+    @ex.capture
     def __init__(self, model_generator, alpha, beta, gamma, sigma):
         model = model_generator()
         self.model_generator = model_generator
-        self.nns_fitness = [(model, model.evaluate(False))]
+        self.nns_fitness = [(model, model.evaluate())]
         self.parameter_shapes = [params.shape for params in model.parameters()]
         self.N = sum([params.size for params in model.parameters()])
+        print(self.N)
         self.alpha = alpha
         self.beta = beta
         self.gamma = gamma
@@ -37,14 +50,14 @@ class NelderMead:
         return parameters
 
     def add_model(self, model, model_fitness, nns_fitness):
-        for i, m, fitness in enumerate(nns_fitness):
+        for i, (m, fitness) in enumerate(nns_fitness):
             if model_fitness < fitness:
                 nns_fitness.insert(i, (model, model_fitness))
                 return
         nns_fitness.insert(len(nns_fitness), (model, model_fitness))
 
     def initialize_models(self):
-        for _ in range(self.N + 1 - len(self.nns_fitness)):
+        for _ in tqdm(range(self.N + 1 - len(self.nns_fitness))):
             model = self.model_generator()
             model_fitness = model.evaluate()
             self.add_model(model, model_fitness, self.nns_fitness)
@@ -101,10 +114,17 @@ class NelderMead:
         return best_models
 
 
+#@simple_nn.capture
+#def model_generator(hidden_layers, hidden_size, conv_net_config):
+#    return NNAgent(hidden_layers, hidden_size, conv_net_config)
+
+
 @ex.automain
 def run():
-    optimizer = NelderMead()
-    best_models = optimizer.run()
+
+    optimizer = NelderMead(model_generator=(lambda : NNAgent()))
+
+    best_models = optimizer.run(20)
     print(len(best_models))
     print("Best fitness: " + str(best_models[-1][1]))
     best_models[-1][0].evaluate(True)
