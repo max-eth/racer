@@ -25,6 +25,13 @@ def config():
 
 
 @car_racing_env.capture
+def image_size(image_scaling):
+    image_dim = 96
+    image_dim //= image_scaling
+    return image_dim
+
+
+@car_racing_env.capture
 def feature_size(
     enable_abs,
     enable_linear_speed,
@@ -46,11 +53,6 @@ def feature_size(
 
     if enable_steering:
         total_length += 1
-
-    if image_scaling != 1:
-        image_dim = 96
-        image_dim //= image_scaling
-        total_length += image_dim * image_dim
 
     return total_length
 

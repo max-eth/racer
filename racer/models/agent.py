@@ -4,6 +4,11 @@ from abc import abstractmethod, ABC
 
 class Agent(ABC):
     @abstractmethod
+    def parameters(self):
+        """ Return all parameters as numpy arrays """
+        ...
+
+    @abstractmethod
     def act(self, image, other) -> np.ndarray:
         """ Perform an action. Should return an ndarray ``result`` with shape ``(3,)``, where
             result[0] = steering (range [-1, 1])
