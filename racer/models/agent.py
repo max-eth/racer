@@ -13,6 +13,11 @@ class Agent(ABC):
         ...
 
     @abstractmethod
+    def set_parameters(self, parameters):
+        """Set parameters from numpy arrays"""
+        ...
+
+    @abstractmethod
     def act(self, image, other) -> np.ndarray:
         """ Perform an action. Should return an ndarray ``result`` with shape ``(3,)``, where
             result[0] = steering (range [-1, 1])
@@ -21,7 +26,7 @@ class Agent(ABC):
         """
         ...
 
-    def evaluate(self, visible) -> float:
+    def evaluate(self, visible=False) -> float:
         """ Evaluate this agent on the environment, and return its fitness
             :param visible: whether to render the run in a window
         """

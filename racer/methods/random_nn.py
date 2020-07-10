@@ -10,4 +10,4 @@ setup_sacred_experiment(ex)
 @ex.automain
 def main():
     agent = NNAgent()
-    agent.evaluate(True)
+    agent.evaluate(False)

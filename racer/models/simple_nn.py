@@ -80,7 +80,7 @@ class NNAgent(Agent):
         return (
             p.numpy()
             for p in chain(self.image_net.parameters(), self.net.parameters())
-            if p.requires_grad == True
+            if p.requires_grad
         )
 
     @simple_nn.capture
@@ -92,6 +92,10 @@ class NNAgent(Agent):
             in_size=self.image_net.output_size((1, 1, image_size(), image_size()))
             + feature_size(),
         )
+
+    def set_parameters(self, parameters):
+        for params_np, params_nn in zip(parameters, [p for p in chain(self.image_net.parameters(), self.net.parameters()) if p.requires_grad]):
+            params_nn[:] = params_np
 
     def act(self, image, other) -> np.ndarray:
         with torch.no_grad():
