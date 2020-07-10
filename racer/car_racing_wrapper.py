@@ -10,14 +10,22 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 '''
 
+import skimage.transform
+import skimage.color
 from gym.envs.box2d.car_racing import *
 
 
 class CarRacingWrapper(CarRacing):
-    def __init__(self):
+    def __init__(self, enable_linear_speed, enable_angular_speed, enable_abs, enable_steering, image_scaling):
         super(CarRacingWrapper, self).__init__(verbose=0)
+        self.enable_linear_speed = enable_linear_speed
+        self.enable_angular_speed = enable_angular_speed
+        self.enable_abs = enable_abs
+        self.enable_steering = enable_steering
+        self.image_scaling = image_scaling
+        self.reset()
 
-    def render(self, mode='human'):
+    def render(self, mode='state_pixels'):
         assert mode in ['human', 'state_pixels', 'rgb_array']
         if self.viewer is None:
             from gym.envs.classic_control import rendering
@@ -29,7 +37,8 @@ class CarRacingWrapper(CarRacing):
 
         if "t" not in self.__dict__: return  # reset() not called yet
 
-        zoom = 0.1 * SCALE * max(1 - self.t, 0) + ZOOM * SCALE * min(self.t, 1)  # Animate zoom first second
+        # zoom = 0.1 * SCALE * max(1 - self.t, 0) + ZOOM * SCALE * min(self.t, 1)  # Animate zoom first second
+        zoom = ZOOM * SCALE
         scroll_x = self.car.hull.position[0]
         scroll_y = self.car.hull.position[1]
         angle = -self.car.hull.angle
@@ -71,7 +80,7 @@ class CarRacingWrapper(CarRacing):
             geom.render()
         self.viewer.onetime_geoms = []
         t.disable()
-        self.render_indicators(WINDOW_W, WINDOW_H)
+        #self.render_indicators(WINDOW_W, WINDOW_H)
 
         if mode == 'human':
             win.flip()
@@ -83,3 +92,31 @@ class CarRacingWrapper(CarRacing):
         arr = arr[::-1, :, 0:3]
 
         return arr
+
+    def get_state(self):
+        vectors = []
+        if self.enable_linear_speed:
+            linear_speed = np.sqrt(
+                np.square(self.car.hull.linearVelocity[0])
+                + np.square(self.car.hull.linearVelocity[1])
+            )
+            vectors.append(np.array([linear_speed]))
+
+        if self.enable_angular_speed:
+            vectors.append(np.array([self.car.hull.angularVelocity]))
+
+        if self.enable_abs:
+            vectors.append(np.array([self.car.wheels[i].omega for i in range(4)]))
+
+        if self.enable_steering:
+            vectors.append(np.array([self.car.wheels[0].joint.angle]))
+
+        image = skimage.color.rgb2gray(self.state)
+        if self.image_scaling != 1:
+            assert (len(image) % self.image_scaling == 0 and len(image[0]) % self.image_scaling == 0)
+            image = skimage.transform.downscale_local_mean(
+                image, (self.image_scaling, self.image_scaling)
+            )
+
+        vectors.append(image.flatten())
+        return np.concatenate(vectors, axis=0)
