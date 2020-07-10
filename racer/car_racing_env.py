@@ -48,7 +48,7 @@ def feature_size(
 
     if image_scaling != 1:
         image_dim = 96
-        image_dim /= image_scaling
+        image_dim //= image_scaling
         total_length += image_dim * image_dim
 
     return total_length
