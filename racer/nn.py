@@ -1,9 +1,7 @@
 from sacred import Ingredient
 import torch
 import torch.nn as nn
-import car_racing_env
-from scipy.special import softmax, expit
-from car_racing_env import car_racing_env
+from racer.car_racing_env import car_racing_env
 
 simple_nn = Ingredient("simple_nn")
 
