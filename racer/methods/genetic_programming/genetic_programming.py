@@ -3,7 +3,10 @@ from sacred import Experiment
 from racer.car_racing_env import car_racing_env, feature_size, get_env
 from racer.models.genetic_agent import genetic, image_feature_size
 from racer.methods.method import Method
-from racer.methods.genetic_programming.building_blocks import combined_operators, combined_terminals
+from racer.methods.genetic_programming.building_blocks import (
+    combined_operators,
+    combined_terminals,
+)
 from racer.models.genetic_agent import GeneticAgent
 from racer.utils import setup_sacred_experiment
 
@@ -21,7 +24,7 @@ setup_sacred_experiment(ex)
 def experiment_config():
     n_iter = 100
 
-    regen_track=False
+    regen_track = False
 
     n_individuals = 100
     n_halloffame = 1
@@ -37,7 +40,9 @@ def experiment_config():
     # methods
     selection_method = lambda **x: tools.selTournament(**x, tournsize=3)
     mating_method = gp.cxOnePoint
-    mutation_expression_gen = lambda **x: gp.genFull(**x, min_=0, max_=max_height)  # TODO 0 to same max height here ok?
+    mutation_expression_gen = lambda **x: gp.genFull(
+        **x, min_=0, max_=max_height
+    )  # TODO 0 to same max height here ok?
     mutation_method = gp.mutUniform
 
     # tree building blocks
@@ -46,9 +51,23 @@ def experiment_config():
 
 
 class GeneticProgramming(Method):
-
     @ex.capture
-    def __init__(self, n_individuals, min_height, max_height, n_halloffame, p_crossover, p_mutate, selection_method, mating_method, mutation_expression_gen, mutation_method, operators, terminals, regen_track):
+    def __init__(
+        self,
+        n_individuals,
+        min_height,
+        max_height,
+        n_halloffame,
+        p_crossover,
+        p_mutate,
+        selection_method,
+        mating_method,
+        mutation_expression_gen,
+        mutation_method,
+        operators,
+        terminals,
+        regen_track,
+    ):
 
         n_inputs = image_feature_size() + feature_size()
 
@@ -61,14 +80,22 @@ class GeneticProgramming(Method):
             pset.addTerminal(t)
 
         # create times
-        creator.create("Fitness", base.Fitness, weights=(1,))  # Assuming that fitness maximized
+        creator.create(
+            "Fitness", base.Fitness, weights=(1,)
+        )  # Assuming that fitness maximized
         creator.create("Individual", gp.PrimitiveTree, fitness=creator.Fitness)
 
         # population generation
         self.toolbox = base.Toolbox()
-        self.toolbox.register("expr", gp.genHalfAndHalf, pset=pset, min_=min_height, max_=max_height)
-        self.toolbox.register("individual", tools.initIterate, creator.Individual, self.toolbox.expr)
-        self.toolbox.register("population", tools.initRepeat, list, self.toolbox.individual)
+        self.toolbox.register(
+            "expr", gp.genHalfAndHalf, pset=pset, min_=min_height, max_=max_height
+        )
+        self.toolbox.register(
+            "individual", tools.initIterate, creator.Individual, self.toolbox.expr
+        )
+        self.toolbox.register(
+            "population", tools.initRepeat, list, self.toolbox.individual
+        )
         self.toolbox.register("compile", gp.compile, pset=pset)
 
         env = get_env()
@@ -77,13 +104,15 @@ class GeneticProgramming(Method):
         def eval_individual(individual):
             tree_func = self.toolbox.compile(expr=individual)
             env.reset(regen_track=regen_track)
-            return GeneticAgent(policy_function=tree_func).evaluate(visible=False),
+            return (GeneticAgent(policy_function=tree_func).evaluate(visible=False),)
 
         self.toolbox.register("evaluate", eval_individual)
         self.toolbox.register("select", selection_method)
         self.toolbox.register("mate", mating_method)
         self.toolbox.register("expr_mut", mutation_expression_gen)
-        self.toolbox.register("mutate", mutation_method, expr=self.toolbox.expr_mut, pset=pset)
+        self.toolbox.register(
+            "mutate", mutation_method, expr=self.toolbox.expr_mut, pset=pset
+        )
 
         # TODO statistics
 
