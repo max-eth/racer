@@ -9,16 +9,6 @@ from racer.car_racing_env import get_env
 
 class Agent(ABC):
     @abstractmethod
-    def parameters(self):
-        """ Return all parameters as numpy arrays """
-        ...
-
-    @abstractmethod
-    def set_parameters(self, parameters):
-        """Set parameters from numpy arrays"""
-        ...
-
-    @abstractmethod
     def act(self, image, other) -> np.ndarray:
         """ Perform an action. Should return an ndarray ``result`` with shape ``(3,)``, where
             result[0] = steering (range [-1, 1])

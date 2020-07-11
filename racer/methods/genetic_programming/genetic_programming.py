@@ -1,6 +1,6 @@
 from sacred import Experiment
 
-from racer.car_racing_env import car_racing_env, feature_size
+from racer.car_racing_env import car_racing_env, feature_size, get_env
 from racer.models.genetic_agent import genetic, image_feature_size
 from racer.methods.method import Method
 from racer.methods.genetic_programming.building_blocks import combined_operators, combined_terminals
@@ -20,6 +20,8 @@ setup_sacred_experiment(ex)
 @ex.config
 def experiment_config():
     n_iter = 100
+
+    regen_track=False
 
     n_individuals = 100
     n_halloffame = 1
@@ -46,7 +48,7 @@ def experiment_config():
 class GeneticProgramming(Method):
 
     @ex.capture
-    def __init__(self, n_individuals, min_height, max_height, n_halloffame, p_crossover, p_mutate, selection_method, mating_method, mutation_expression_gen, mutation_method, operators, terminals):
+    def __init__(self, n_individuals, min_height, max_height, n_halloffame, p_crossover, p_mutate, selection_method, mating_method, mutation_expression_gen, mutation_method, operators, terminals, regen_track):
 
         n_inputs = image_feature_size() + feature_size()
 
@@ -69,10 +71,12 @@ class GeneticProgramming(Method):
         self.toolbox.register("population", tools.initRepeat, list, self.toolbox.individual)
         self.toolbox.register("compile", gp.compile, pset=pset)
 
+        env = get_env()
+
         # evaluation and selection
         def eval_individual(individual):
-            #import pdb; pdb.set_trace()
             tree_func = self.toolbox.compile(expr=individual)
+            env.reset(regen_track=regen_track)
             return GeneticAgent(policy_function=tree_func).evaluate(visible=False),
 
         self.toolbox.register("evaluate", eval_individual)
