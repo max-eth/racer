@@ -23,11 +23,11 @@ class Agent(ABC):
             :param visible: whether to render the run in a window
         """
 
-        if env.t != 0:
+        if env.t > 0.02:
             warnings.warn("This environment has not been reset")
         done = False
         neg_reward_count = 0
-        progress = tqdm()
+        # progress = tqdm()
         # yappi.set_clock_type("cpu")  # Use set_clock_type("wall") for wall time
         # yappi.start()
         while not done:
@@ -38,11 +38,11 @@ class Agent(ABC):
             else:
                 neg_reward_count = 0
             if neg_reward_count > 500:
-                print("Stopping early")
+                # print("Stopping early")
                 break
             if visible:
                 env.render(mode="human")
-            progress.update()
-        progress.close()
+            # progress.update()
+        # progress.close()
         # yappi.get_func_stats().print_all()
         return env.reward
