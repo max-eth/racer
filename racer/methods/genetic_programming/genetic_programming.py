@@ -16,7 +16,7 @@ from deap import creator
 from deap import tools
 from deap.algorithms import varAnd
 
-ex = Experiment("evolution_strategy", ingredients=[car_racing_env, genetic])
+ex = Experiment("genetic programming", ingredients=[car_racing_env, genetic])
 setup_sacred_experiment(ex)
 
 
@@ -37,13 +37,14 @@ def experiment_config():
     min_height = 4
     max_height = 12
 
-    # methods
-    selection_method = lambda **x: tools.selTournament(**x, tournsize=3)
-    mating_method = gp.cxOnePoint
-    mutation_expression_gen = lambda **x: gp.genFull(
-        **x, min_=0, max_=max_height
+    # methods and their parameters
+    selection_method = tools.selTournament, {"tournsize": 3}
+    mating_method = gp.cxOnePoint, {}
+    mutation_expression_gen = (
+        gp.genFull,
+        {"min_": 0, "max_": max_height},
     )  # TODO 0 to same max height here ok?
-    mutation_method = gp.mutUniform
+    mutation_method = gp.mutUniform, {}
 
     # tree building blocks
     operators = combined_operators
@@ -103,18 +104,27 @@ class GeneticProgramming(Method):
         # evaluation and selection
         def eval_individual(individual):
             tree_func = self.toolbox.compile(expr=individual)
-            env.reset(regen_track=regen_track)
-            return (GeneticAgent(policy_function=tree_func).evaluate(visible=False),)
+            env.reset(regen_track=regen_track)  # This breaks with multiprocessing
+            return (
+                GeneticAgent(policy_function=tree_func).evaluate(
+                    env=env, visible=False
+                ),
+            )
+
+        def build_method(m):
+            method_fct, method_params = m
+            return lambda *args, **kwargs: method_fct(*args, **kwargs, **method_params)
 
         self.toolbox.register("evaluate", eval_individual)
-        self.toolbox.register("select", selection_method)
-        self.toolbox.register("mate", mating_method)
-        self.toolbox.register("expr_mut", mutation_expression_gen)
+        self.toolbox.register("select", build_method(selection_method))
+        self.toolbox.register("mate", build_method(mating_method))
+        self.toolbox.register("expr_mut", build_method(mutation_expression_gen))
         self.toolbox.register(
-            "mutate", mutation_method, expr=self.toolbox.expr_mut, pset=pset
+            "mutate",
+            build_method(mutation_method),
+            expr=self.toolbox.expr_mut,
+            pset=pset,
         )
-
-        # TODO statistics
 
         self.population = self.toolbox.population(n=n_individuals)
         self.halloffame = tools.HallOfFame(n_halloffame)
@@ -133,11 +143,14 @@ class GeneticProgramming(Method):
         if self.halloffame is not None:
             self.halloffame.update(self.population)
 
+    @ex.capture
     def step(self):
         # The following code is adapted from https://github.com/DEAP/deap/blob/master/deap/algorithms.py
 
         # Select the next generation individuals
-        offspring = self.toolbox.select(self.population, len(self.population))
+        offspring = self.toolbox.select(
+            individuals=self.population, k=len(self.population)
+        )
 
         # Vary the pool of individuals
         offspring = varAnd(offspring, self.toolbox, self.p_crossover, self.p_mutate)
@@ -147,7 +160,7 @@ class GeneticProgramming(Method):
 
         self._update_hof()  # TODO this was done before updating the population in the library source code. Still correct?
 
-        return self.population
+        return self.toolbox.evaluate(self.halloffame[0])[0]
 
     def _update_hof(self):
         # Evaluate the individuals with an invalid fitness
@@ -160,15 +173,18 @@ class GeneticProgramming(Method):
         if self.halloffame is not None:
             self.halloffame.update(self.population)
 
-    def run(self, n_iter):
+    @ex.capture
+    def run(self, n_iter, _run):
         # The following code is adapted from https://github.com/DEAP/deap/blob/master/deap/algorithms.py
         for gen in range(n_iter):
-            self.step()
+            best_score = self.step()
+            _run.log_scalar("Best score", best_score, gen)
+            print("Gen {}, best score {}".format(gen, best_score))
         return self.population
 
 
 @ex.automain
-def run(n_iter):
+def run():
     optim = GeneticProgramming()
-    optim.run(n_iter=n_iter)
+    optim.run()
     best_models = optim.halloffame
