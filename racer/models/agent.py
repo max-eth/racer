@@ -1,5 +1,6 @@
 import numpy as np
 from abc import abstractmethod, ABC
+import warnings
 
 import yappi
 from tqdm import tqdm
@@ -22,6 +23,8 @@ class Agent(ABC):
             :param visible: whether to render the run in a window
         """
 
+        if env.t != 0:
+            warnings.warn("This environment has not been reset")
         done = False
         neg_reward_count = 0
         progress = tqdm()

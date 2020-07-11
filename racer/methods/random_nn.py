@@ -33,3 +33,7 @@ def main():
     print("Running with fake environment and viewer")
     fake_env = get_env(track_data=real_env.export(), render_view=True)
     print(agent.evaluate(fake_env, False))
+
+    print("Running with fake environment after reset")
+    fake_env.reset(regen_track=False)
+    print(agent.evaluate(fake_env, False))
