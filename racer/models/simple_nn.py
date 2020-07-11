@@ -12,8 +12,8 @@ simple_nn = Ingredient("simple_nn", ingredients=[car_racing_env])
 
 @simple_nn.config
 def nn_config():
-    hidden_layers = 1
-    hidden_size = 10
+    hidden_layers = 5
+    hidden_size = 1
 
     conv_net_config = [
         (3, 2, 3),  # after this, size is 2x10x10
@@ -129,19 +129,23 @@ class NNAgent(Agent):
             parameters,
             [
                 p
-                for p in chain(self.image_net.parameters(), self.net.parameters())
+                for p in (
+                    chain(self.image_net.parameters(), self.net.parameters())
+                    if self.use_conv_net
+                    else self.net.parameters()
+                )
                 if p.requires_grad
             ],
         ):
-            params_nn[:] = params_np
+            params_nn[:] = torch.tensor(params_np)
 
     def act(self, image, other) -> np.ndarray:
         with torch.no_grad():
             if self.use_conv_net:
                 image_features = self.image_net(torch.tensor(image)).flatten()
             else:
-                image_features = [
-                    image[0, 0, coords[0], coords[1]] for coords in self.pixels
-                ]
+                image_features = torch.tensor(
+                    [image[0, 0, coords[0], coords[1]] for coords in self.pixels]
+                )
             both = torch.cat([image_features, torch.tensor(other)])
             return self.net(both).numpy()

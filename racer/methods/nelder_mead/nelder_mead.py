@@ -13,8 +13,8 @@ setup_sacred_experiment(ex)
 
 @ex.config
 def nm_config():
-    alpha = 0.7
-    beta = 0.85
+    alpha = 1
+    beta = 1.1
     gamma = 0.4
     sigma = 0.5
     iterations = 20
@@ -23,7 +23,7 @@ def nm_config():
 class NelderMead:
     @ex.capture
     def __init__(self, env, model_generator, alpha, beta, gamma, sigma):
-        self.env = (env,)
+        self.env = env
         self.model_generator = model_generator
         model = model_generator()
         self.nns_fitness = [(model, model.evaluate(env=env))]
@@ -68,7 +68,7 @@ class NelderMead:
         print("REEEEEEEEEEEEEEEEEEESET")
         best_model, best_model_fitness = self.nns_fitness.pop()
         nns_fitness_new = [(best_model, best_model_fitness)]
-        for old_model, old_model_fitness in self.nns_fitness:
+        for old_model, old_model_fitness in tqdm(self.nns_fitness):
             new_model = self.model_generator()
             new_model.set_parameters(
                 build_parameters(
@@ -156,25 +156,34 @@ class NelderMead:
                     candidate_model2, candidate_model2_fitness, self.nns_fitness
                 )
             else:
+                self.nns_fitness.insert(0,(worst_model, worst_model_fitness))
                 self.reset_nns()
 
     @ex.capture
-    def run(self, iterations):
+    def run(self, iterations, _run):
         best_models = [self.nns_fitness[-1]]
-        for _ in tqdm(range(iterations)):
+        for i in tqdm(range(iterations), desc="running NM"):
             self.step()
+            _run.log_scalar("best_model", best_models[-1][1], i)
+            _run.log_scalar(
+                "avg_model",
+                sum([s[1] for s in self.nns_fitness]) / len(self.nns_fitness),
+                i,
+            )
             if best_models[-1][1] < self.nns_fitness[-1][1]:
                 best_models.append(self.nns_fitness[-1])
+                self.env.reset(regen_track=False)
+                self.nns_fitness[-1][0].evaluate(self.env, True)
         return best_models
 
 
 @ex.automain
-def run():
+def run(iterations):
 
     env = get_env()
     optimizer = NelderMead(env=env, model_generator=(lambda: NNAgent()))
 
-    best_models = optimizer.run(20)
+    best_models = optimizer.run(iterations)
     print(len(best_models))
     print("Best fitness: " + str(best_models[-1][1]))
     env.reset(regen_track=False)
