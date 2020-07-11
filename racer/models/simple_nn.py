@@ -20,6 +20,22 @@ def nn_config():
         (3, 1, 2),  # after this, size is 2x4x4
     ]
     random_seed = 4
+    use_conv_net = False
+    pixels = []
+    height = 0
+    width = None
+    with open("resources/use_pixels.txt") as f:
+        for i, line in enumerate(f):
+            line = line[:-1]  # cut off \n
+            height += 1
+
+            for j, c in enumerate(line):
+                if c == "1":
+                    pixels.append((i, j))
+
+            if width is not None and len(line) != width:
+                raise Exception("Different line lengths in use_pixels")
+            width = len(line)
 
 
 class ConvNet(nn.Module):
@@ -78,20 +94,34 @@ class SimpleNN(nn.Module):
 
 class NNAgent(Agent):
     def parameters(self):
-        return (
-            p.detach().numpy()
-            for p in chain(self.image_net.parameters(), self.net.parameters())
-            if p.requires_grad
-        )
+        if self.use_conv_net:
+            return (
+                p.detach().numpy()
+                for p in chain(self.image_net.parameters(), self.net.parameters())
+                if p.requires_grad
+            )
+        else:
+            return (
+                p.detach().numpy() for p in self.net.parameters() if p.requires_grad
+            )
 
     @simple_nn.capture
-    def __init__(self, *, hidden_layers, hidden_size, conv_net_config):
-        self.image_net = ConvNet(conv_net_config=conv_net_config, in_channels=1)
+    def __init__(
+        self, *, hidden_layers, hidden_size, conv_net_config, use_conv_net, pixels
+    ):
+        self.pixels = pixels
+        self.use_conv_net = use_conv_net
+        if self.use_conv_net:
+            self.image_net = ConvNet(conv_net_config=conv_net_config, in_channels=1)
+            in_size = (
+                self.image_net.output_size((1, 1, image_size(), image_size()))
+                + feature_size()
+            )
+        else:
+            in_size = len(pixels) + feature_size()
+
         self.net = SimpleNN(
-            hidden_layers=hidden_layers,
-            hidden_size=hidden_size,
-            in_size=self.image_net.output_size((1, 1, image_size(), image_size()))
-            + feature_size(),
+            hidden_layers=hidden_layers, hidden_size=hidden_size, in_size=in_size,
         )
 
     def set_parameters(self, parameters):
@@ -107,6 +137,11 @@ class NNAgent(Agent):
 
     def act(self, image, other) -> np.ndarray:
         with torch.no_grad():
-            image_features = self.image_net(torch.tensor(image)).flatten()
+            if self.use_conv_net:
+                image_features = self.image_net(torch.tensor(image)).flatten()
+            else:
+                image_features = [
+                    image[0, 0, coords[0], coords[1]] for coords in self.pixels
+                ]
             both = torch.cat([image_features, torch.tensor(other)])
             return self.net(both).numpy()
