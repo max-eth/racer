@@ -2,9 +2,9 @@ from sacred import Experiment
 import numpy as np
 from tqdm import tqdm
 import functools
-from racer.car_racing_env import car_racing_env, get_env
+from racer.car_racing_env import car_racing_env, get_env, get_track_data
 from racer.models.simple_nn import simple_nn, NNAgent
-from racer.utils import setup_sacred_experiment
+from racer.utils import setup_sacred_experiment, load_pickle, write_pickle
 from racer.utils import flatten_parameters, build_parameters
 
 ex = Experiment("nelder_mead", ingredients=[car_racing_env, simple_nn],)
@@ -13,11 +13,12 @@ setup_sacred_experiment(ex)
 
 @ex.config
 def nm_config():
+    n = 44
     alpha = 1
-    beta = 1.1
-    gamma = 0.4
-    sigma = 0.5
-    iterations = 20
+    beta = 2
+    gamma = 0.5
+    sigma = 1.5
+    iterations = 2000
 
 
 class NelderMead:
@@ -36,7 +37,6 @@ class NelderMead:
         self.sigma = sigma
         assert beta > alpha
         assert gamma < 1
-        assert sigma < 1
 
     def build_parameters(self, parameters_flattened):
         parameters = []
@@ -172,15 +172,16 @@ class NelderMead:
             )
             if best_models[-1][1] < self.nns_fitness[-1][1]:
                 best_models.append(self.nns_fitness[-1])
-                self.env.reset(regen_track=False)
-                self.nns_fitness[-1][0].evaluate(self.env, True)
+                np.save("best{}.npy".format(i), flatten_parameters(self.nns_fitness[-1][0].parameters()))
+                #self.env.reset(regen_track=False)
+                #self.nns_fitness[-1][0].evaluate(self.env, True)
         return best_models
 
 
 @ex.automain
 def run(iterations):
 
-    env = get_env()
+    env = get_env(track_data=load_pickle("track_data.p"))
     optimizer = NelderMead(env=env, model_generator=(lambda: NNAgent()))
 
     best_models = optimizer.run(iterations)

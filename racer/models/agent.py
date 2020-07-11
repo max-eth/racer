@@ -45,4 +45,5 @@ class Agent(ABC):
             # progress.update()
         # progress.close()
         # yappi.get_func_stats().print_all()
+        print(env.reward)
         return env.reward
