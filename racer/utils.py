@@ -7,6 +7,7 @@ from sacred.utils import apply_backspaces_and_linefeeds
 import torch
 import random
 import numpy as np
+import functools
 
 
 def load_pickle(fname):
@@ -21,6 +22,20 @@ def write_pickle(o, fname):
 
 def flatten_2d(l):
     return [item for sublist in l for item in sublist]
+
+
+def flatten_parameters(parameters):
+    return np.concatenate([p.flatten() for p in parameters])
+
+
+def build_parameters(parameter_shapes, parameters_flattened):
+    parameters = []
+    index = 0
+    for shape in parameter_shapes:
+        size = functools.reduce(lambda a, b: a * b, shape)
+        parameters.append(parameters_flattened[index : index + size].reshape(*shape))
+        index += size
+    return parameters
 
 
 def setup_sacred_experiment(ex: sacred.Experiment):
