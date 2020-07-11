@@ -19,6 +19,7 @@ def nn_config():
         (3, 2, 3),  # after this, size is 2x10x10
         (3, 1, 2),  # after this, size is 2x4x4
     ]
+    random_seed = 4
 
 
 class ConvNet(nn.Module):
@@ -78,9 +79,9 @@ class SimpleNN(nn.Module):
 class NNAgent(Agent):
     def parameters(self):
         return (
-            p.numpy()
+            p.detach().numpy()
             for p in chain(self.image_net.parameters(), self.net.parameters())
-            if p.requires_grad == True
+            if p.requires_grad
         )
 
     @simple_nn.capture
@@ -92,6 +93,17 @@ class NNAgent(Agent):
             in_size=self.image_net.output_size((1, 1, image_size(), image_size()))
             + feature_size(),
         )
+
+    def set_parameters(self, parameters):
+        for params_np, params_nn in zip(
+            parameters,
+            [
+                p
+                for p in chain(self.image_net.parameters(), self.net.parameters())
+                if p.requires_grad
+            ],
+        ):
+            params_nn[:] = params_np
 
     def act(self, image, other) -> np.ndarray:
         with torch.no_grad():

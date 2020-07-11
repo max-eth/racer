@@ -20,24 +20,16 @@ def config():
     enable_angular_speed = True
     enable_steering = True
 
-    # larger values mean more scaling
-    image_scaling = 3
-
 
 @car_racing_env.capture
-def image_size(image_scaling):
-    image_dim = 96
-    image_dim //= image_scaling
+def image_size():
+    image_dim = 32
     return image_dim
 
 
 @car_racing_env.capture
 def feature_size(
-    enable_abs,
-    enable_linear_speed,
-    enable_angular_speed,
-    enable_steering,
-    image_scaling,
+    enable_abs, enable_linear_speed, enable_angular_speed, enable_steering,
 ):
     """ The length of the environment features """
     total_length = 0
@@ -63,8 +55,31 @@ def get_env(
     enable_linear_speed,
     enable_angular_speed,
     enable_steering,
-    image_scaling,
+    track_data=None,
+    render_view=False,
 ):
 
-    env = CarRacingWrapper(enable_linear_speed, enable_angular_speed, enable_abs, enable_steering, image_scaling)
+    env = CarRacingWrapper(
+        enable_linear_speed,
+        enable_angular_speed,
+        enable_abs,
+        enable_steering,
+        prerendered_data=track_data,
+        render_view=render_view,
+    )
     return env
+
+
+@car_racing_env.capture
+def get_track_data(
+    enable_abs,
+    enable_linear_speed,
+    enable_angular_speed,
+    enable_steering,
+    track_data=None,
+):
+
+    env = CarRacingWrapper(
+        enable_linear_speed, enable_angular_speed, enable_abs, enable_steering
+    )
+    return env.export()

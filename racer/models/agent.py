@@ -1,6 +1,7 @@
 import numpy as np
 from abc import abstractmethod, ABC
 
+import yappi
 from tqdm import tqdm
 
 from racer.car_racing_env import get_env
@@ -13,6 +14,11 @@ class Agent(ABC):
         ...
 
     @abstractmethod
+    def set_parameters(self, parameters):
+        """Set parameters from numpy arrays"""
+        ...
+
+    @abstractmethod
     def act(self, image, other) -> np.ndarray:
         """ Perform an action. Should return an ndarray ``result`` with shape ``(3,)``, where
             result[0] = steering (range [-1, 1])
@@ -21,17 +27,16 @@ class Agent(ABC):
         """
         ...
 
-    def evaluate(self, visible) -> float:
+    def evaluate(self, env, visible=False) -> float:
         """ Evaluate this agent on the environment, and return its fitness
             :param visible: whether to render the run in a window
         """
 
-        env = get_env()
-        env.reset()
-        env.step(action=None)
         done = False
         neg_reward_count = 0
         progress = tqdm()
+        # yappi.set_clock_type("cpu")  # Use set_clock_type("wall") for wall time
+        # yappi.start()
         while not done:
             action = self.act(*env.get_state())
             _, step_reward, done, _ = env.step(action=action)
@@ -42,10 +47,9 @@ class Agent(ABC):
             if neg_reward_count > 500:
                 print("Stopping early")
                 break
-            #print("{:.4f}\t {:.4f}".format(env.reward, step_reward))
             if visible:
-                env.render(mode='human')
+                env.render(mode="human")
             progress.update()
-
-
-
+        progress.close()
+        # yappi.get_func_stats().print_all()
+        return env.reward
