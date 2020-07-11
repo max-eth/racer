@@ -1,6 +1,7 @@
 import numpy as np
 from abc import abstractmethod, ABC
 
+import yappi
 from tqdm import tqdm
 
 from racer.car_racing_env import get_env
@@ -32,11 +33,12 @@ class Agent(ABC):
         """
 
         env = get_env()
-        env.reset()
         env.step(action=None)
         done = False
         neg_reward_count = 0
         progress = tqdm()
+        # yappi.set_clock_type("cpu")  # Use set_clock_type("wall") for wall time
+        # yappi.start()
         while not done:
             action = self.act(*env.get_state())
             _, step_reward, done, _ = env.step(action=action)
@@ -44,13 +46,13 @@ class Agent(ABC):
                 neg_reward_count += 1
             else:
                 neg_reward_count = 0
-            if neg_reward_count > 100:
+            if neg_reward_count > 500:
                 print("Stopping early")
                 break
-            #print("{:.4f}\t {:.4f}".format(env.reward, step_reward))
             if visible:
-                env.render(mode='human')
+                env.render(mode="human")
             progress.update()
+        # yappi.get_func_stats().print_all()
         env.viewer.close()
         return env.reward
 
