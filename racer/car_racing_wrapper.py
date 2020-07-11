@@ -24,6 +24,54 @@ class CarRacingWrapper(CarRacing):
         self.enable_steering = enable_steering
         self.image_scaling = image_scaling
 
+    def step(self, action):
+        if action is not None:
+            self.car.steer(-action[0])
+            self.car.gas(action[1])
+            self.car.brake(action[2])
+
+        self.car.step(1.0 / FPS)
+        self.world.Step(1.0 / FPS, 6 * 30, 2 * 30)
+        self.t += 1.0 / FPS
+
+        self.state = self.render("state_pixels")
+
+        step_reward = 0
+        done = False
+        if action is not None:  # First step without action, called from reset()
+            self.reward -= 0.1
+            # We actually don't want to count fuel spent, we want car to be faster.
+            # self.reward -=  10 * self.car.fuel_spent / ENGINE_POWER
+            self.car.fuel_spent = 0.0
+            step_reward = self.reward - self.prev_reward
+            self.prev_reward = self.reward
+            if self.tile_visited_count == len(self.track):
+                done = True
+            x, y = self.car.hull.position
+            if abs(x) > PLAYFIELD or abs(y) > PLAYFIELD:
+                done = True
+                step_reward = -100
+
+        return self.state, step_reward, done, {}
+
+    def reset(self):
+        self._destroy()
+        self.reward = 0.0
+        self.prev_reward = 0.0
+        self.tile_visited_count = 0
+        self.t = 0.0
+        self.road_poly = []
+
+        while True:
+            success = self._create_track()
+            if success:
+                break
+            if self.verbose == 1:
+                print("retry to generate track (normal if there are not many instances of this message)")
+        self.car = Car(self.world, *self.track[0][1:4])
+
+        return self.step(None)[0]
+
     def render(self, mode='human'):
         assert mode in ['human', 'state_pixels', 'rgb_array']
         if self.viewer is None:
@@ -118,3 +166,47 @@ class CarRacingWrapper(CarRacing):
             )
 
         return image.reshape(1, 1, image.shape[0], image.shape[0]), np.concatenate(vectors, axis=0).astype(np.float32)
+
+    if __name__ == "__main__":
+        from pyglet.window import key
+        a = np.array([0.0, 0.0, 0.0])
+
+        def key_press(k, mod):
+            global restart
+            if k == 0xff0d: restart = True
+            if k == key.LEFT:  a[0] = -1.0
+            if k == key.RIGHT: a[0] = +1.0
+            if k == key.UP:    a[1] = +1.0
+            if k == key.DOWN:  a[2] = +0.8  # set 1.0 for wheels to block to zero rotation
+
+        def key_release(k, mod):
+            if k == key.LEFT and a[0] == -1.0: a[0] = 0
+            if k == key.RIGHT and a[0] == +1.0: a[0] = 0
+            if k == key.UP:    a[1] = 0
+            if k == key.DOWN:  a[2] = 0
+
+        env = CarRacing()
+        env.render()
+        env.viewer.window.on_key_press = key_press
+        env.viewer.window.on_key_release = key_release
+        record_video = False
+        if record_video:
+            from gym.wrappers.monitor import Monitor
+            env = Monitor(env, '/tmp/video-test', force=True)
+        isopen = True
+        while isopen:
+            env.reset()
+            total_reward = 0.0
+            steps = 0
+            restart = False
+            while True:
+                s, r, done, info = env.step(a)
+                total_reward += r
+                if steps % 200 == 0 or done:
+                    print("\naction " + str(["{:+0.2f}".format(x) for x in a]))
+                    print("step {} total_reward {:+0.2f}".format(steps, total_reward))
+                steps += 1
+                isopen = env.render()
+                if done or restart or isopen == False:
+                    break
+        env.close()
