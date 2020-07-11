@@ -19,7 +19,6 @@ def nm_config():
 
 
 class NelderMead:
-
     @ex.capture
     def __init__(self, model_generator, alpha, beta, gamma, sigma):
         model = model_generator()
@@ -32,10 +31,9 @@ class NelderMead:
         self.beta = beta
         self.gamma = gamma
         self.sigma = sigma
-        assert(beta > alpha)
-        assert(gamma < 1)
-        assert(sigma < 1)
-
+        assert beta > alpha
+        assert gamma < 1
+        assert sigma < 1
 
     def flatten_parameters(self, parameters):
         return np.concatenate([p.flatten() for p in parameters])
@@ -44,8 +42,10 @@ class NelderMead:
         parameters = []
         index = 0
         for shape in self.parameter_shapes:
-            size = functools.reduce(lambda a, b: a*b, shape)
-            parameters.append(parameters_flattened[index: index + size].reshape(*shape))
+            size = functools.reduce(lambda a, b: a * b, shape)
+            parameters.append(
+                parameters_flattened[index : index + size].reshape(*shape)
+            )
             index += size
         return parameters
 
@@ -61,7 +61,7 @@ class NelderMead:
             model = self.model_generator()
             model_fitness = model.evaluate()
             self.add_model(model, model_fitness, self.nns_fitness)
-        assert(len(self.nns_fitness) == self.N + 1)
+        assert len(self.nns_fitness) == self.N + 1
 
     def reset_nss(self):
         print("REEEEEEEEEEEEEEEEEEESET")
@@ -69,27 +69,57 @@ class NelderMead:
         nns_fitness_new = [(best_model, best_model_fitness)]
         for old_model, old_model_fitness in self.nns_fitness:
             new_model = self.model_generator()
-            new_model.set_parameters(self.flatten_parameters(old_model.parameters()) + self.sigma * (self.flatten_parameters(best_model.parameters()) - self.flatten_parameters(old_model.parameters())))
+            new_model.set_parameters(
+                self.flatten_parameters(old_model.parameters())
+                + self.sigma
+                * (
+                    self.flatten_parameters(best_model.parameters())
+                    - self.flatten_parameters(old_model.parameters())
+                )
+            )
             self.add_model(new_model, new_model.evaluate(), nns_fitness_new)
-        assert(len(nns_fitness_new) == self.N + 1)
+        assert len(nns_fitness_new) == self.N + 1
         self.nns_fitness = nns_fitness_new
 
     def step(self):
         if len(self.nns_fitness) < self.N + 1:
             self.initialize_models()
         worst_model, worst_model_fitness = self.nns_fitness.pop(0)
-        bary_model_parameters = np.mean([self.flatten_parameters(model.parameters()) for model, _ in self.nns_fitness])
+        bary_model_parameters = np.mean(
+            [
+                self.flatten_parameters(model.parameters())
+                for model, _ in self.nns_fitness
+            ]
+        )
         candidate_model1 = self.model_generator()
-        candidate_model1.set_parameters(bary_model_parameters + self.alpha * (bary_model_parameters - self.flatten_parameters(worst_model.parameters())))
+        candidate_model1.set_parameters(
+            bary_model_parameters
+            + self.alpha
+            * (
+                bary_model_parameters
+                - self.flatten_parameters(worst_model.parameters())
+            )
+        )
         candidate_model1_fitness = candidate_model1.evaluate()
         if candidate_model1_fitness > self.nns_fitness[-1][1]:
             candidate_model2 = self.model_generator()
-            candidate_model2.set_parameters(bary_model_parameters + self.beta * (bary_model_parameters - self.flatten_parameters(worst_model.parameters())))
+            candidate_model2.set_parameters(
+                bary_model_parameters
+                + self.beta
+                * (
+                    bary_model_parameters
+                    - self.flatten_parameters(worst_model.parameters())
+                )
+            )
             candidate_model2_fitness = candidate_model2.evaluate()
             if candidate_model1_fitness < candidate_model2_fitness:
-                self.add_model(candidate_model2, candidate_model2_fitness, self.nns_fitness)
+                self.add_model(
+                    candidate_model2, candidate_model2_fitness, self.nns_fitness
+                )
             else:
-                self.add_model(candidate_model1, candidate_model1_fitness, self.nns_fitness)
+                self.add_model(
+                    candidate_model1, candidate_model1_fitness, self.nns_fitness
+                )
         elif candidate_model1_fitness > self.nns_fitness[0][1]:
             self.add_model(candidate_model1, candidate_model1_fitness, self.nns_fitness)
         else:
@@ -98,10 +128,19 @@ class NelderMead:
             else:
                 better_model = candidate_model1
             candidate_model2 = self.model_generator()
-            candidate_model2.set_parameters(self.flatten_parameters(better_model.parameters()) + self.gamma * (bary_model_parameters - self.flatten_parameters(better_model.parameters())))
+            candidate_model2.set_parameters(
+                self.flatten_parameters(better_model.parameters())
+                + self.gamma
+                * (
+                    bary_model_parameters
+                    - self.flatten_parameters(better_model.parameters())
+                )
+            )
             candidate_model2_fitness = candidate_model2.evaluate()
             if candidate_model2_fitness > worst_model_fitness:
-                self.add_model(candidate_model2, candidate_model2_fitness, self.nns_fitness)
+                self.add_model(
+                    candidate_model2, candidate_model2_fitness, self.nns_fitness
+                )
             else:
                 self.reset_nns()
 
@@ -114,15 +153,15 @@ class NelderMead:
         return best_models
 
 
-#@simple_nn.capture
-#def model_generator(hidden_layers, hidden_size, conv_net_config):
+# @simple_nn.capture
+# def model_generator(hidden_layers, hidden_size, conv_net_config):
 #    return NNAgent(hidden_layers, hidden_size, conv_net_config)
 
 
 @ex.automain
 def run():
 
-    optimizer = NelderMead(model_generator=(lambda : NNAgent()))
+    optimizer = NelderMead(model_generator=(lambda: NNAgent()))
 
     best_models = optimizer.run(20)
     print(len(best_models))

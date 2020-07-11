@@ -85,8 +85,7 @@ class NNAgent(Agent):
         )
 
     @simple_nn.capture
-    def __init__(self, *, hidden_layers, hidden_size, conv_net_config, random_seed):
-        np.random.seed = random_seed
+    def __init__(self, *, hidden_layers, hidden_size, conv_net_config):
         self.image_net = ConvNet(conv_net_config=conv_net_config, in_channels=1)
         self.net = SimpleNN(
             hidden_layers=hidden_layers,
@@ -96,7 +95,14 @@ class NNAgent(Agent):
         )
 
     def set_parameters(self, parameters):
-        for params_np, params_nn in zip(parameters, [p for p in chain(self.image_net.parameters(), self.net.parameters()) if p.requires_grad]):
+        for params_np, params_nn in zip(
+            parameters,
+            [
+                p
+                for p in chain(self.image_net.parameters(), self.net.parameters())
+                if p.requires_grad
+            ],
+        ):
             params_nn[:] = params_np
 
     def act(self, image, other) -> np.ndarray:

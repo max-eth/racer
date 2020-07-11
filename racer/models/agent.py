@@ -27,13 +27,11 @@ class Agent(ABC):
         """
         ...
 
-    def evaluate(self, visible=False) -> float:
+    def evaluate(self, env, visible=False) -> float:
         """ Evaluate this agent on the environment, and return its fitness
             :param visible: whether to render the run in a window
         """
 
-        env = get_env()
-        env.step(action=None)
         done = False
         neg_reward_count = 0
         progress = tqdm()
@@ -52,9 +50,6 @@ class Agent(ABC):
             if visible:
                 env.render(mode="human")
             progress.update()
+        progress.close()
         # yappi.get_func_stats().print_all()
-        env.viewer.close()
         return env.reward
-
-
-
