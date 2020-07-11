@@ -66,5 +66,11 @@ def get_env(
     image_scaling,
 ):
 
-    env = CarRacingWrapper(enable_linear_speed, enable_angular_speed, enable_abs, enable_steering, image_scaling)
+    env = CarRacingWrapper(
+        enable_linear_speed,
+        enable_angular_speed,
+        enable_abs,
+        enable_steering,
+        image_scaling,
+    )
     return env

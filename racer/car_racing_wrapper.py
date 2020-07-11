@@ -1,4 +1,4 @@
-'''
+"""
 The main portion of this code was taken from OpenAI Gym and it is licensed under the following license:
 
 The MIT License
@@ -8,7 +8,7 @@ Copyright (c) 2016 OpenAI (https://openai.com)
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-'''
+"""
 
 import skimage.transform
 import skimage.color
@@ -16,7 +16,14 @@ from gym.envs.box2d.car_racing import *
 
 
 class CarRacingWrapper(CarRacing):
-    def __init__(self, enable_linear_speed, enable_angular_speed, enable_abs, enable_steering, image_scaling):
+    def __init__(
+        self,
+        enable_linear_speed,
+        enable_angular_speed,
+        enable_abs,
+        enable_steering,
+        image_scaling,
+    ):
         super(CarRacingWrapper, self).__init__(verbose=0)
         self.enable_linear_speed = enable_linear_speed
         self.enable_angular_speed = enable_angular_speed
@@ -67,22 +74,32 @@ class CarRacingWrapper(CarRacing):
             if success:
                 break
             if self.verbose == 1:
-                print("retry to generate track (normal if there are not many instances of this message)")
+                print(
+                    "retry to generate track (normal if there are not many instances of this message)"
+                )
         self.car = Car(self.world, *self.track[0][1:4])
 
         return self.step(None)[0]
 
-    def render(self, mode='human'):
-        assert mode in ['human', 'state_pixels', 'rgb_array']
+    def render(self, mode="human"):
+        assert mode in ["human", "state_pixels", "rgb_array"]
         if self.viewer is None:
             from gym.envs.classic_control import rendering
+
             self.viewer = rendering.Viewer(WINDOW_W, WINDOW_H)
-            self.score_label = pyglet.text.Label('0000', font_size=36,
-                                                 x=20, y=WINDOW_H * 2.5 / 40.00, anchor_x='left', anchor_y='center',
-                                                 color=(255, 255, 255, 255))
+            self.score_label = pyglet.text.Label(
+                "0000",
+                font_size=36,
+                x=20,
+                y=WINDOW_H * 2.5 / 40.00,
+                anchor_x="left",
+                anchor_y="center",
+                color=(255, 255, 255, 255),
+            )
             self.transform = rendering.Transform()
 
-        if "t" not in self.__dict__: return  # reset() not called yet
+        if "t" not in self.__dict__:
+            return  # reset() not called yet
 
         # zoom = 0.1 * SCALE * max(1 - self.t, 0) + ZOOM * SCALE * min(self.t, 1)  # Animate zoom first second
         zoom = ZOOM * SCALE
@@ -94,8 +111,11 @@ class CarRacingWrapper(CarRacing):
             angle = math.atan2(vel[0], vel[1])
         self.transform.set_scale(zoom, zoom)
         self.transform.set_translation(
-            WINDOW_W / 2 - (scroll_x * zoom * math.cos(angle) - scroll_y * zoom * math.sin(angle)),
-            WINDOW_H / 4 - (scroll_x * zoom * math.sin(angle) + scroll_y * zoom * math.cos(angle)))
+            WINDOW_W / 2
+            - (scroll_x * zoom * math.cos(angle) - scroll_y * zoom * math.sin(angle)),
+            WINDOW_H / 4
+            - (scroll_x * zoom * math.sin(angle) + scroll_y * zoom * math.cos(angle)),
+        )
         self.transform.set_rotation(angle)
 
         self.car.draw(self.viewer, mode != "state_pixels")
@@ -107,16 +127,18 @@ class CarRacingWrapper(CarRacing):
 
         win.clear()
         t = self.transform
-        if mode == 'rgb_array':
+        if mode == "rgb_array":
             VP_W = VIDEO_W
             VP_H = VIDEO_H
-        elif mode == 'state_pixels':
+        elif mode == "state_pixels":
             VP_W = STATE_W
             VP_H = STATE_H
         else:
             pixel_scale = 1
-            if hasattr(win.context, '_nscontext'):
-                pixel_scale = win.context._nscontext.view().backingScaleFactor()  # pylint: disable=protected-access
+            if hasattr(win.context, "_nscontext"):
+                pixel_scale = (
+                    win.context._nscontext.view().backingScaleFactor()
+                )  # pylint: disable=protected-access
             VP_W = int(pixel_scale * WINDOW_W)
             VP_H = int(pixel_scale * WINDOW_H)
 
@@ -127,14 +149,16 @@ class CarRacingWrapper(CarRacing):
             geom.render()
         self.viewer.onetime_geoms = []
         t.disable()
-        #self.render_indicators(WINDOW_W, WINDOW_H)
+        # self.render_indicators(WINDOW_W, WINDOW_H)
 
-        if mode == 'human':
+        if mode == "human":
             win.flip()
             return self.viewer.isopen
 
-        image_data = pyglet.image.get_buffer_manager().get_color_buffer().get_image_data()
-        arr = np.fromstring(image_data.get_data(), dtype=np.uint8, sep='')
+        image_data = (
+            pyglet.image.get_buffer_manager().get_color_buffer().get_image_data()
+        )
+        arr = np.fromstring(image_data.get_data(), dtype=np.uint8, sep="")
         arr = arr.reshape(VP_H, VP_W, 4)
         arr = arr[::-1, :, 0:3]
 
@@ -160,30 +184,46 @@ class CarRacingWrapper(CarRacing):
 
         image = skimage.color.rgb2gray(self.state.astype(np.float32))
         if self.image_scaling != 1:
-            assert (len(image) % self.image_scaling == 0 and len(image[0]) % self.image_scaling == 0)
+            assert (
+                len(image) % self.image_scaling == 0
+                and len(image[0]) % self.image_scaling == 0
+            )
             image = skimage.transform.downscale_local_mean(
                 image, (self.image_scaling, self.image_scaling)
             )
 
-        return image.reshape(1, 1, image.shape[0], image.shape[0]), np.concatenate(vectors, axis=0).astype(np.float32)
+        return (
+            image.reshape(1, 1, image.shape[0], image.shape[0]),
+            np.concatenate(vectors, axis=0).astype(np.float32),
+        )
 
     if __name__ == "__main__":
         from pyglet.window import key
+
         a = np.array([0.0, 0.0, 0.0])
 
         def key_press(k, mod):
             global restart
-            if k == 0xff0d: restart = True
-            if k == key.LEFT:  a[0] = -1.0
-            if k == key.RIGHT: a[0] = +1.0
-            if k == key.UP:    a[1] = +1.0
-            if k == key.DOWN:  a[2] = +0.8  # set 1.0 for wheels to block to zero rotation
+            if k == 0xFF0D:
+                restart = True
+            if k == key.LEFT:
+                a[0] = -1.0
+            if k == key.RIGHT:
+                a[0] = +1.0
+            if k == key.UP:
+                a[1] = +1.0
+            if k == key.DOWN:
+                a[2] = +0.8  # set 1.0 for wheels to block to zero rotation
 
         def key_release(k, mod):
-            if k == key.LEFT and a[0] == -1.0: a[0] = 0
-            if k == key.RIGHT and a[0] == +1.0: a[0] = 0
-            if k == key.UP:    a[1] = 0
-            if k == key.DOWN:  a[2] = 0
+            if k == key.LEFT and a[0] == -1.0:
+                a[0] = 0
+            if k == key.RIGHT and a[0] == +1.0:
+                a[0] = 0
+            if k == key.UP:
+                a[1] = 0
+            if k == key.DOWN:
+                a[2] = 0
 
         env = CarRacing()
         env.render()
@@ -192,7 +232,8 @@ class CarRacingWrapper(CarRacing):
         record_video = False
         if record_video:
             from gym.wrappers.monitor import Monitor
-            env = Monitor(env, '/tmp/video-test', force=True)
+
+            env = Monitor(env, "/tmp/video-test", force=True)
         isopen = True
         while isopen:
             env.reset()
