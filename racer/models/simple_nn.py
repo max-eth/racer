@@ -19,6 +19,7 @@ def nn_config():
         (3, 2, 3),  # after this, size is 2x10x10
         (3, 1, 2),  # after this, size is 2x4x4
     ]
+    random_seed = 4
 
 
 class ConvNet(nn.Module):
@@ -84,7 +85,8 @@ class NNAgent(Agent):
         )
 
     @simple_nn.capture
-    def __init__(self, *, hidden_layers, hidden_size, conv_net_config):
+    def __init__(self, *, hidden_layers, hidden_size, conv_net_config, random_seed):
+        np.random.seed = random_seed
         self.image_net = ConvNet(conv_net_config=conv_net_config, in_channels=1)
         self.net = SimpleNN(
             hidden_layers=hidden_layers,
