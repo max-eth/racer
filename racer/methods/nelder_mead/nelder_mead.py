@@ -2,7 +2,7 @@ from sacred import Experiment
 import numpy as np
 from tqdm import tqdm
 import functools
-from racer.car_racing_env import car_racing_env
+from racer.car_racing_env import car_racing_env, get_env
 from racer.models.simple_nn import simple_nn, NNAgent
 from racer.utils import setup_sacred_experiment
 from racer.utils import flatten_parameters, build_parameters
@@ -22,10 +22,11 @@ def nm_config():
 
 class NelderMead:
     @ex.capture
-    def __init__(self, model_generator, alpha, beta, gamma, sigma):
-        model = model_generator()
+    def __init__(self, env, model_generator, alpha, beta, gamma, sigma):
+        self.env = (env,)
         self.model_generator = model_generator
-        self.nns_fitness = [(model, model.evaluate())]
+        model = model_generator()
+        self.nns_fitness = [(model, model.evaluate(env=env))]
         self.parameter_shapes = [params.shape for params in model.parameters()]
         self.N = sum([params.size for params in model.parameters()])
         print(self.N)
@@ -58,7 +59,8 @@ class NelderMead:
     def initialize_models(self):
         for _ in tqdm(range(self.N + 1 - len(self.nns_fitness))):
             model = self.model_generator()
-            model_fitness = model.evaluate()
+            self.env.reset(regen_track=False)
+            model_fitness = model.evaluate(env=self.env)
             self.add_model(model, model_fitness, self.nns_fitness)
         assert len(self.nns_fitness) == self.N + 1
 
@@ -79,7 +81,9 @@ class NelderMead:
                     ),
                 )
             )
-            self.add_model(new_model, new_model.evaluate(), nns_fitness_new)
+            self.env.reset(regen_track=False)
+            new_model_fitness = new_model.evaluate(env=self.env)
+            self.add_model(new_model, new_model_fitness, nns_fitness_new)
         assert len(nns_fitness_new) == self.N + 1
         self.nns_fitness = nns_fitness_new
 
@@ -101,7 +105,8 @@ class NelderMead:
                 ),
             )
         )
-        candidate_model1_fitness = candidate_model1.evaluate()
+        self.env.reset(regen_track=False)
+        candidate_model1_fitness = candidate_model1.evaluate(env=self.env)
         if candidate_model1_fitness > self.nns_fitness[-1][1]:
             candidate_model2 = self.model_generator()
             candidate_model2.set_parameters(
@@ -115,7 +120,8 @@ class NelderMead:
                     ),
                 )
             )
-            candidate_model2_fitness = candidate_model2.evaluate()
+            self.env.reset(regen_track=False)
+            candidate_model2_fitness = candidate_model2.evaluate(env=self.env)
             if candidate_model1_fitness < candidate_model2_fitness:
                 self.add_model(
                     candidate_model2, candidate_model2_fitness, self.nns_fitness
@@ -143,7 +149,8 @@ class NelderMead:
                     ),
                 )
             )
-            candidate_model2_fitness = candidate_model2.evaluate()
+            self.env.reset(regen_track=False)
+            candidate_model2_fitness = candidate_model2.evaluate(env=self.env)
             if candidate_model2_fitness > worst_model_fitness:
                 self.add_model(
                     candidate_model2, candidate_model2_fitness, self.nns_fitness
@@ -164,9 +171,11 @@ class NelderMead:
 @ex.automain
 def run():
 
-    optimizer = NelderMead(model_generator=(lambda: NNAgent()))
+    env = get_env()
+    optimizer = NelderMead(env=env, model_generator=(lambda: NNAgent()))
 
     best_models = optimizer.run(20)
     print(len(best_models))
     print("Best fitness: " + str(best_models[-1][1]))
-    best_models[-1][0].evaluate(True)
+    env.reset(regen_track=False)
+    best_models[-1][0].evaluate(env, True)

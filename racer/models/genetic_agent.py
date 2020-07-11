@@ -20,7 +20,7 @@ def genetic_config():
 
             for j, c in enumerate(line):
                 if c == "1":
-                    pixels.append((i,j))
+                    pixels.append((i, j))
 
             if width is not None and len(line) != width:
                 raise Exception("Different line lengths in use_pixels")
@@ -35,13 +35,20 @@ def image_feature_size(pixels):
 @genetic.capture
 def check_pixel_map_size(width, height):
     if width != image_size():
-        raise Exception("Use pixels has invalid dimensions. Expected width {} but got {}".format(image_size(), width))
+        raise Exception(
+            "Use pixels has invalid dimensions. Expected width {} but got {}".format(
+                image_size(), width
+            )
+        )
     if height != image_size():
-        raise Exception("Use pixels has invalid dimensions. Expected height {} but got {}".format(image_size(), height))
+        raise Exception(
+            "Use pixels has invalid dimensions. Expected height {} but got {}".format(
+                image_size(), height
+            )
+        )
 
 
 class GeneticAgent(Agent):
-
     @genetic.capture
     def __init__(self, policy_function, pixels):
         check_pixel_map_size()
@@ -65,5 +72,3 @@ class GeneticAgent(Agent):
         gas, brake = max(0, acceleration), max(0, -acceleration)
 
         return np.array([steering, gas, brake])
-
-
