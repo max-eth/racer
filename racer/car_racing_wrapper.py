@@ -29,6 +29,7 @@ class CarRacingWrapper(CarRacing):
         enable_angular_speed,
         enable_abs,
         enable_steering,
+        headless,
         prerendered_data=None,
         render_view=False,
     ):
@@ -42,6 +43,8 @@ class CarRacingWrapper(CarRacing):
         :param imgs: pre-rendered track images for each degree
         """
         super(CarRacingWrapper, self).__init__(verbose=0)
+        assert not (headless is True and prerendered_data is None)
+        self.headless = headless
         self.last_action = None
         self.enable_linear_speed = enable_linear_speed
         self.enable_angular_speed = enable_angular_speed
@@ -494,6 +497,8 @@ class CarRacingWrapper(CarRacing):
         self.transform = rendering.Transform()
 
     def render(self, mode="human"):
+        if self.headless:
+            return
         assert mode in ["human", "state_pixels", "rgb_array"]
         if self.viewer is None:
             self.setup_viewer()

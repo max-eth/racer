@@ -19,6 +19,7 @@ def config():
     enable_linear_speed = True
     enable_angular_speed = True
     enable_steering = True
+    headless = False
 
 
 @car_racing_env.capture
@@ -55,15 +56,18 @@ def get_env(
     enable_linear_speed,
     enable_angular_speed,
     enable_steering,
+    headless,
     track_data=None,
     render_view=False,
 ):
 
+    assert not (headless and track_data is None)
     env = CarRacingWrapper(
         enable_linear_speed,
         enable_angular_speed,
         enable_abs,
         enable_steering,
+        headless,
         prerendered_data=track_data,
         render_view=render_view,
     )
