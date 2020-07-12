@@ -57,7 +57,7 @@ def load_pixels():
     reflected_pixels = []
     for x, y in pixels:
         reflected_pixels.append((32 - x, y))
-    return pixels
+    return pixels + reflected_pixels
 
 def setup_sacred_experiment(ex: sacred.Experiment):
     try:
