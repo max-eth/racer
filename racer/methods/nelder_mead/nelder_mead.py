@@ -18,7 +18,7 @@ def nm_config():
     beta = 2
     gamma = 0.5
     sigma = 1.5
-    weighted_average = True
+    weighted_average = False
     iterations = 2000
 
 
