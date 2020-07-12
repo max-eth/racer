@@ -42,6 +42,7 @@ class CarRacingWrapper(CarRacing):
         :param imgs: pre-rendered track images for each degree
         """
         super(CarRacingWrapper, self).__init__(verbose=0)
+        self.last_action = None
         self.enable_linear_speed = enable_linear_speed
         self.enable_angular_speed = enable_angular_speed
         self.enable_abs = enable_abs
@@ -335,19 +336,7 @@ class CarRacingWrapper(CarRacing):
 
     def render_whole_track(self):
         if self.viewer is None:
-            from gym.envs.classic_control import rendering
-
-            self.viewer = rendering.Viewer(WINDOW_W, WINDOW_H)
-            self.score_label = pyglet.text.Label(
-                "0000",
-                font_size=36,
-                x=20,
-                y=WINDOW_H * 2.5 / 40.00,
-                anchor_x="left",
-                anchor_y="center",
-                color=(255, 255, 255, 255),
-            )
-            self.transform = rendering.Transform()
+            self.setup_viewer()
 
         self.transform.set_scale(1, 1)
         self.transform.set_translation(WINDOW_W / 2, WINDOW_H / 2)
@@ -388,6 +377,7 @@ class CarRacingWrapper(CarRacing):
         return imgs
 
     def step(self, action):
+        self.last_action = action
         if action is not None:
             self.car.steer(-action[0])
             self.car.gas(action[1])
@@ -446,32 +436,62 @@ class CarRacingWrapper(CarRacing):
             + np.square(self.car.hull.linearVelocity[1])
         )
         vertical_ind(5, 0.02 * true_speed, (1, 1, 1))
-        vertical_ind(7, 0.01 * self.car.wheels[0].omega, (0.0, 0, 1))  # ABS sensors
-        vertical_ind(8, 0.01 * self.car.wheels[1].omega, (0.0, 0, 1))
-        vertical_ind(9, 0.01 * self.car.wheels[2].omega, (0.2, 0, 1))
-        vertical_ind(10, 0.01 * self.car.wheels[3].omega, (0.2, 0, 1))
+
+        if self.last_action is not None:
+            vertical_ind(8, 2.5 * self.last_action[1], (0, 1, 0)) # gas
+            vertical_ind(9, 2.5 * self.last_action[2], (1, 0, 0)) # brake
+
         horiz_ind(20, -10.0 * self.car.wheels[0].joint.angle, (0, 1, 0))
         horiz_ind(30, -0.8 * self.car.hull.angularVelocity, (1, 0, 0))
         gl.glEnd()
         self.score_label.text = "R: %04i" % self.reward
         self.score_label.draw()
 
+        if self.last_action is not None:
+            self.gas_label.text = "G:{0:.2f}".format(self.last_action[1])
+            self.brake_label.text = "B:{0:.2f}".format(self.last_action[2])
+
+        self.gas_label.draw()
+        self.brake_label.draw()
+
+
+    def setup_viewer(self):
+        from gym.envs.classic_control import rendering
+
+        self.viewer = rendering.Viewer(WINDOW_W, WINDOW_H)
+        self.score_label = pyglet.text.Label(
+            "0000",
+            font_size=36,
+            x=20,
+            y=WINDOW_H * 2.5 / 40.00,
+            anchor_x="left",
+            anchor_y="center",
+            color=(255, 255, 255, 255),
+        )
+        self.gas_label = pyglet.text.Label(
+            "0000",
+            font_size=12,
+            x=300,
+            y=WINDOW_H * 2.5 / 40.00,
+            anchor_x="left",
+            anchor_y="center",
+            color=(255, 255, 255, 255),
+        )
+        self.brake_label = pyglet.text.Label(
+            "0000",
+            font_size=12,
+            x=300,
+            y=WINDOW_H * 2.5 / 40.00 - 20,
+            anchor_x="left",
+            anchor_y="center",
+            color=(255, 255, 255, 255),
+        )
+        self.transform = rendering.Transform()
+
     def render(self, mode="human"):
         assert mode in ["human", "state_pixels", "rgb_array"]
         if self.viewer is None:
-            from gym.envs.classic_control import rendering
-
-            self.viewer = rendering.Viewer(WINDOW_W, WINDOW_H)
-            self.score_label = pyglet.text.Label(
-                "0000",
-                font_size=36,
-                x=20,
-                y=WINDOW_H * 2.5 / 40.00,
-                anchor_x="left",
-                anchor_y="center",
-                color=(255, 255, 255, 255),
-            )
-            self.transform = rendering.Transform()
+            self.setup_viewer()
 
         if "t" not in self.__dict__:
             return  # reset() not called yet
@@ -524,7 +544,7 @@ class CarRacingWrapper(CarRacing):
             geom.render()
         self.viewer.onetime_geoms = []
         t.disable()
-        # self.render_indicators(WINDOW_W, WINDOW_H)
+        self.render_indicators(WINDOW_W, WINDOW_H)
 
         if mode == "human":
             win.flip()
