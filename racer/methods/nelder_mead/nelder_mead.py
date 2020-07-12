@@ -18,13 +18,15 @@ def nm_config():
     beta = 2
     gamma = 0.5
     sigma = 1.5
+    weighted_average = True
     iterations = 2000
+
 
 
 
 class NelderMead:
     @ex.capture
-    def __init__(self, env, model_generator, alpha, beta, gamma, sigma):
+    def __init__(self, env, model_generator, alpha, beta, gamma, sigma, weighted_average):
         self.env = env
         self.model_generator = model_generator
         model = model_generator()
@@ -36,6 +38,7 @@ class NelderMead:
         self.beta = beta
         self.gamma = gamma
         self.sigma = sigma
+        self.weighted_average = weighted_average
         assert beta > alpha
         assert gamma < 1
 
@@ -92,9 +95,13 @@ class NelderMead:
         if len(self.nns_fitness) < self.N + 1:
             self.initialize_models()
         worst_model, worst_model_fitness = self.nns_fitness.pop(0)
-        bary_model_parameters = np.mean(
-            [flatten_parameters(model.parameters()) for model, _ in self.nns_fitness]
-        )
+        if self.weighted_average:
+            total_fitness = sum(fitness for _, fitness in self.nns_fitness)
+            bary_model_parameters = [np.array([i*fitness/total_fitness for i in flatten_parameters(model.parameters())]) for model, fitness in self.nns_fitness]
+        else:
+            bary_model_parameters = np.mean(
+                [flatten_parameters(model.parameters()) for model, _ in self.nns_fitness]
+            )
         candidate_model1 = self.model_generator()
         candidate_model1.set_parameters(
             build_parameters(
