@@ -156,7 +156,7 @@ class NelderMead:
                     candidate_model2, candidate_model2_fitness, self.nns_fitness
                 )
             else:
-                self.nns_fitness.insert(0,(worst_model, worst_model_fitness))
+                self.nns_fitness.insert(0, (worst_model, worst_model_fitness))
                 self.reset_nns()
 
     @ex.capture
@@ -172,9 +172,12 @@ class NelderMead:
             )
             if best_models[-1][1] < self.nns_fitness[-1][1]:
                 best_models.append(self.nns_fitness[-1])
-                np.save("best{}.npy".format(i), flatten_parameters(self.nns_fitness[-1][0].parameters()))
-                #self.env.reset(regen_track=False)
-                #self.nns_fitness[-1][0].evaluate(self.env, True)
+                np.save(
+                    "best{}.npy".format(i),
+                    flatten_parameters(self.nns_fitness[-1][0].parameters()),
+                )
+                # self.env.reset(regen_track=False)
+                # self.nns_fitness[-1][0].evaluate(self.env, True)
         return best_models
 
 

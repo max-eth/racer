@@ -8,6 +8,7 @@ from scipy.optimize import minimize
 ex = Experiment("scipy_nelder_mead", ingredients=[car_racing_env, simple_nn],)
 setup_sacred_experiment(ex)
 
+
 @ex.automain
 def run():
 
@@ -22,4 +23,9 @@ def run():
         agent.set_parameters(build_parameters(shapes, params))
         return agent.evaluate(real_env, visible=False)
 
-    minimize(f, flatten_parameters(agent.parameters()), method='Nelder-Mead', options={"disp": True})
+    minimize(
+        f,
+        flatten_parameters(agent.parameters()),
+        method="Nelder-Mead",
+        options={"disp": True},
+    )

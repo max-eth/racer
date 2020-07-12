@@ -12,8 +12,8 @@ simple_nn = Ingredient("simple_nn", ingredients=[car_racing_env])
 
 @simple_nn.config
 def nn_config():
-    hidden_layers = 5
-    hidden_size = 1
+    hidden_layers = 2
+    hidden_size = 4
 
     conv_net_config = [
         (3, 2, 3),  # after this, size is 2x10x10
