@@ -81,14 +81,13 @@ class SimpleNN(nn.Module):
             for i in range(hidden_layers - 1):
                 layers.append(nn.Linear(hidden_size, hidden_size))
                 layers.append(nn.ReLU())
-        layers.append(nn.Linear(hidden_size if hidden_layers != 0 else in_size, 3))
+        layers.append(nn.Linear(hidden_size if hidden_layers != 0 else in_size, 2))
 
         self.sq = nn.Sequential(*layers)
 
     def forward(self, x):
         x = self.sq(x)
-        x[0] = torch.tanh(x[0])
-        x[1:] = torch.sigmoid(x[1:])
+        x = torch.tanh(x)
         return x
 
 
@@ -148,4 +147,6 @@ class NNAgent(Agent):
                     [image[0, 0, coords[0], coords[1]] for coords in self.pixels]
                 )
             both = torch.cat([image_features, torch.tensor(other)])
-            return self.net(both).numpy()
+            out = self.net(both).numpy()
+            action = np.ndarray([out[0], max(0, out[1]), max(0, -out[1])])
+            return action
