@@ -392,7 +392,11 @@ class CarRacingWrapper(CarRacing):
         step_reward = 0
         done = False
         if action is not None:  # First step without action, called from reset()
-            self.reward -= 0.1
+            tiles_of_wheels = {tile for wheel in self.car.wheels for tile in wheel.tiles}
+            if all(t.road_friction != 1.0 for t in tiles_of_wheels):
+                self.reward -= 10
+            else:
+                self.reward -= 0.1
             # We actually don't want to count fuel spent, we want car to be faster.
             # self.reward -=  10 * self.car.fuel_spent / ENGINE_POWER
             self.car.fuel_spent = 0.0
