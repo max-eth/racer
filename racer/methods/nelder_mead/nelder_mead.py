@@ -1,3 +1,6 @@
+import os
+import tempfile
+
 from sacred import Experiment
 import numpy as np
 from tqdm import tqdm
@@ -169,6 +172,8 @@ class NelderMead:
 
     @ex.capture
     def run(self, iterations, _run):
+        run_dir_path = tempfile.mkdtemp()
+        print("Run directory:", run_dir_path)
         best_models = [self.nns_fitness[-1]]
         for i in tqdm(range(iterations), desc="running NM"):
             self.step()
@@ -180,10 +185,12 @@ class NelderMead:
             )
             if best_models[-1][1] < self.nns_fitness[-1][1]:
                 best_models.append(self.nns_fitness[-1])
+                fname = os.path.join(run_dir_path, "best{}.npy".format(i))
                 np.save(
-                    "best{}.npy".format(i),
+                    fname,
                     flatten_parameters(self.nns_fitness[-1][0].parameters()),
                 )
+                _run.add_artifact(fname, name="best{}".format(i))
                 self.env.reset(regen_track=False)
                 self.nns_fitness[-1][0].evaluate(self.env, True)
         return best_models
