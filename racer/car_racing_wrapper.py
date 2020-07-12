@@ -417,6 +417,45 @@ class CarRacingWrapper(CarRacing):
 
         return self.state, step_reward, done, {}
 
+    def render_indicators(self, W, H):
+        gl.glBegin(gl.GL_QUADS)
+        s = W / 40.0
+        h = H / 40.0
+        gl.glColor4f(0, 0, 0, 1)
+        gl.glVertex3f(W, 0, 0)
+        gl.glVertex3f(W, 5 * h, 0)
+        gl.glVertex3f(0, 5 * h, 0)
+        gl.glVertex3f(0, 0, 0)
+
+        def vertical_ind(place, val, color):
+            gl.glColor4f(color[0], color[1], color[2], 1)
+            gl.glVertex3f((place + 0) * s, h + h * val, 0)
+            gl.glVertex3f((place + 1) * s, h + h * val, 0)
+            gl.glVertex3f((place + 1) * s, h, 0)
+            gl.glVertex3f((place + 0) * s, h, 0)
+
+        def horiz_ind(place, val, color):
+            gl.glColor4f(color[0], color[1], color[2], 1)
+            gl.glVertex3f((place + 0) * s, 4 * h, 0)
+            gl.glVertex3f((place + val) * s, 4 * h, 0)
+            gl.glVertex3f((place + val) * s, 2 * h, 0)
+            gl.glVertex3f((place + 0) * s, 2 * h, 0)
+
+        true_speed = np.sqrt(
+            np.square(self.car.hull.linearVelocity[0])
+            + np.square(self.car.hull.linearVelocity[1])
+        )
+        vertical_ind(5, 0.02 * true_speed, (1, 1, 1))
+        vertical_ind(7, 0.01 * self.car.wheels[0].omega, (0.0, 0, 1))  # ABS sensors
+        vertical_ind(8, 0.01 * self.car.wheels[1].omega, (0.0, 0, 1))
+        vertical_ind(9, 0.01 * self.car.wheels[2].omega, (0.2, 0, 1))
+        vertical_ind(10, 0.01 * self.car.wheels[3].omega, (0.2, 0, 1))
+        horiz_ind(20, -10.0 * self.car.wheels[0].joint.angle, (0, 1, 0))
+        horiz_ind(30, -0.8 * self.car.hull.angularVelocity, (1, 0, 0))
+        gl.glEnd()
+        self.score_label.text = "R: %04i" % self.reward
+        self.score_label.draw()
+
     def render(self, mode="human"):
         assert mode in ["human", "state_pixels", "rgb_array"]
         if self.viewer is None:
