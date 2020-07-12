@@ -6,14 +6,15 @@ import torch
 import torch.nn as nn
 from racer.car_racing_env import feature_size, car_racing_env, image_size
 from racer.models.agent import Agent
+from racer.utils import load_pixels
 
 simple_nn = Ingredient("simple_nn", ingredients=[car_racing_env])
 
 
 @simple_nn.config
 def nn_config():
-    hidden_layers = 2
-    hidden_size = 4
+    hidden_layers = 3
+    hidden_size = 5
 
     conv_net_config = [
         (3, 2, 3),  # after this, size is 2x10x10
@@ -21,21 +22,7 @@ def nn_config():
     ]
     random_seed = 4
     use_conv_net = False
-    pixels = []
-    height = 0
-    width = None
-    with open("resources/use_pixels.txt") as f:
-        for i, line in enumerate(f):
-            line = line[:-1]  # cut off \n
-            height += 1
-
-            for j, c in enumerate(line):
-                if c == "1":
-                    pixels.append((i, j))
-
-            if width is not None and len(line) != width:
-                raise Exception("Different line lengths in use_pixels")
-            width = len(line)
+    pixels = load_pixels()
 
 
 class ConvNet(nn.Module):

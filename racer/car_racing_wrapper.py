@@ -408,6 +408,7 @@ class CarRacingWrapper(CarRacing):
             if abs(x) > PLAYFIELD or abs(y) > PLAYFIELD:
                 done = True
                 step_reward = -100
+        self.max_reward = max(self.reward, self.max_reward)
 
         return self.state, step_reward, done, {}
 
@@ -590,6 +591,7 @@ class CarRacingWrapper(CarRacing):
 
     def reset(self, regen_track=True):
         self._destroy()
+        self.max_reward = -100000000000000
         self.reward = 0.0
         self.prev_reward = 0.0
         self.tile_visited_count = 0

@@ -37,6 +37,27 @@ def build_parameters(parameter_shapes, parameters_flattened):
         index += size
     return parameters
 
+def load_pixels():
+
+    pixels = []
+    height = 0
+    width = None
+    with open("resources/use_pixels.txt") as f:
+        for i, line in enumerate(f):
+            line = line[:-1]  # cut off \n
+            height += 1
+
+            for j, c in enumerate(line):
+                if c == "1":
+                    pixels.append((i, j))
+
+            if width is not None and len(line) != width:
+                raise Exception("Different line lengths in use_pixels")
+            width = len(line)
+    reflected_pixels = []
+    for x, y in pixels:
+        reflected_pixels.append((32 - x, y))
+    return pixels
 
 def setup_sacred_experiment(ex: sacred.Experiment):
     try:
