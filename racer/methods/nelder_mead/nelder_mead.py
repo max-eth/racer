@@ -21,6 +21,7 @@ def nm_config():
     iterations = 2000
 
 
+
 class NelderMead:
     @ex.capture
     def __init__(self, env, model_generator, alpha, beta, gamma, sigma):
@@ -176,15 +177,15 @@ class NelderMead:
                     "best{}.npy".format(i),
                     flatten_parameters(self.nns_fitness[-1][0].parameters()),
                 )
-                # self.env.reset(regen_track=False)
-                # self.nns_fitness[-1][0].evaluate(self.env, True)
+                self.env.reset(regen_track=False)
+                self.nns_fitness[-1][0].evaluate(self.env, True)
         return best_models
 
 
 @ex.automain
 def run(iterations):
 
-    env = get_env(track_data=load_pickle("track_data.p"))
+    env = get_env()#track_data=load_pickle("track_data.p"))
     optimizer = NelderMead(env=env, model_generator=(lambda: NNAgent()))
 
     best_models = optimizer.run(iterations)

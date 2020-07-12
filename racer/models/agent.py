@@ -37,7 +37,7 @@ class Agent(ABC):
                 neg_reward_count += 1
             else:
                 neg_reward_count = 0
-            if neg_reward_count > 500:
+            if neg_reward_count > 100:
                 # print("Stopping early")
                 break
             if visible:

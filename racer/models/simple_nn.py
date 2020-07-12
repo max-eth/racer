@@ -148,5 +148,5 @@ class NNAgent(Agent):
                 )
             both = torch.cat([image_features, torch.tensor(other)])
             out = self.net(both).numpy()
-            action = np.ndarray([out[0], max(0, out[1]), max(0, -out[1])])
+            action = np.array([out[0], max(0, out[1]), max(0, -out[1])])
             return action
