@@ -57,8 +57,6 @@ class CarRacingWrapper(CarRacing):
         self.frame = 0
         self.render_view = render_view
 
-
-
         if render_view:
             from pyformulas import screen
 
@@ -565,7 +563,9 @@ class CarRacingWrapper(CarRacing):
         self.render_indicators(WINDOW_W, WINDOW_H)
 
         if store_frames:
-            pyglet.image.get_buffer_manager().get_color_buffer().save('tmp/frames/' + str(self.frame) + '.png')
+            pyglet.image.get_buffer_manager().get_color_buffer().save(
+                "tmp/frames/" + str(self.frame) + ".png"
+            )
             self.frame += 1
 
         if mode == "human":

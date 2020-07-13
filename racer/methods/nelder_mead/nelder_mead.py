@@ -3,9 +3,10 @@ import tempfile
 
 from sacred import Experiment
 import numpy as np
+from scipy.special import softmax
 from tqdm import tqdm
 import functools
-from racer.car_racing_env import car_racing_env, get_env, get_track_data, init_env
+from racer.car_racing_env import car_racing_env, get_env, get_track_data
 from racer.models.simple_nn import simple_nn, NNAgent
 from racer.utils import setup_sacred_experiment, load_pickle, write_pickle
 from racer.utils import flatten_parameters, build_parameters
@@ -21,8 +22,8 @@ def nm_config():
     beta = 2
     gamma = 0.5
     sigma = 1.5
-    weighted_average = False
-    iterations = 2000
+    weighted_average = True
+    iterations = 500
 
 
 class NelderMead:
@@ -99,16 +100,11 @@ class NelderMead:
             self.initialize_models()
         worst_model, worst_model_fitness = self.nns_fitness.pop(0)
         if self.weighted_average:
-            total_fitness = sum(fitness for _, fitness in self.nns_fitness)
-            bary_model_parameters = [
-                np.array(
-                    [
-                        i * fitness / total_fitness
-                        for i in flatten_parameters(model.parameters())
-                    ]
-                )
-                for model, fitness in self.nns_fitness
-            ]
+            weights = softmax([fitness for _, fitness in self.nns_fitness])
+            bary_model_parameters = np.sum(
+                np.array([i * weight for i in flatten_parameters(model.parameters())])
+                for (model, _), weight in zip(self.nns_fitness, weights)
+            )
         else:
             bary_model_parameters = np.mean(
                 [
@@ -207,12 +203,13 @@ class NelderMead:
 
 
 @ex.automain
-def run(iterations, _run):
-    env = init_env(track_data=load_pickle("track_data.p"))
+def run(iterations):
+
+    env = get_env()  # track_data=load_pickle("track_data.p"))
     optimizer = NelderMead(env=env, model_generator=(lambda: NNAgent()))
 
     best_models = optimizer.run(iterations)
     print(len(best_models))
     print("Best fitness: " + str(best_models[-1][1]))
     env.reset(regen_track=False)
-    return best_models[-1][0].evaluate(env, True)
+    best_models[-1][0].evaluate(env, True, True)

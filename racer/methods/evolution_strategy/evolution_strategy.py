@@ -1,9 +1,13 @@
 from sacred import Experiment
+import tempfile
+import os
+from tqdm import tqdm
 
-from racer.car_racing_env import car_racing_env
+from racer.car_racing_env import car_racing_env, get_env
 from racer.utils import setup_sacred_experiment
-from racer.models.simple_nn import SimpleNN, simple_nn
+from racer.models.simple_nn import SimpleNN, simple_nn, NNAgent
 from racer.methods.method import Method
+from racer.utils import flatten_parameters, build_parameters
 import random
 import numpy as np
 import functools
@@ -17,14 +21,16 @@ def cfg():
     mutation_rate = 0.6
     parent_selec_strat = "random"
     children_selec_strat = "n_plus_lambda"
-    population_size = "50"
-    num_children = "10"
+    population_size = 100
+    num_children = 40
+    generations = 500
 
 
-class EvolutionStrategy(Method):
+class EvolutionStrategy:
     @ex.capture
     def __init__(
         self,
+        env,
         model_generator,
         mutation_rate,
         parent_selec_strat,
@@ -46,46 +52,91 @@ class EvolutionStrategy(Method):
         self.mutation_rate = mutation_rate
         self.parent_selec_strat = parent_selec_strat
         self.children_selec_strat = children_selec_strat
+        self.env = env
         for _ in range(self.N):
             model = model_generator()
-            model_fitness = model.evaluate()
-            self.current_population.append((model, model_fitness))
+            self.env.reset(regen_track=False)
+            model_fitness = model.evaluate(env)
+            self.add_model(model, model_fitness)
+        self.parameter_shapes = [
+            params.shape for params in self.current_population[0][0].parameters()
+        ]
 
     def step(self):
+        mutated_children = self.generate_children(self.select_parents())
+        if self.children_selec_strat == "lambda":
+            self.current_population = []
+        for child, child_fitness in mutated_children:
+            self.add_model(child, child_fitness)
+        self.current_population = self.current_population[-self.N :]
 
-        pass
+    def add_model(self, model, model_fitness):
+        for i, (m, fitness) in enumerate(self.current_population):
+            if model_fitness < fitness:
+                self.current_population.insert(i, (model, model_fitness))
+                return
+        self.current_population.insert(
+            len(self.current_population), (model, model_fitness)
+        )
 
-    def run(self):
-        pass
+    @ex.capture
+    def run(self, generations, _run):
+        run_dir_path = tempfile.mkdtemp()
+        print("Run directory:", run_dir_path)
+        best_models = [self.current_population[-1]]
+        for i in tqdm(range(generations), desc="running ES"):
+            self.step()
+            _run.log_scalar("best_model", best_models[-1][1], i)
+            _run.log_scalar(
+                "avg_model", sum([s[1] for s in self.current_population]) / self.N, i,
+            )
+            if best_models[-1][1] < self.current_population[-1][1]:
+                best_models.append(self.current_population[-1])
+                fname = os.path.join(run_dir_path, "best{}.npy".format(i))
+                np.save(
+                    fname,
+                    flatten_parameters(self.current_population[-1][0].parameters()),
+                )
+                _run.add_artifact(fname, name="best{}".format(i))
+                self.env.reset(regen_track=False)
+                self.current_population[-1][0].evaluate(self.env, True)
+        return best_models
 
     def select_parents(self):
         if self.parent_selec_strat == "random":
-            parents = set(range(self.N))
-            for _ in range(self.N - self.num_children):
-                parents.remove(random.sample(parents, 1)[0])
+            parents = random.sample(range(self.N), self.num_children)
         elif self.parent_selec_strat == "roulette":
-            parents = set()
+            parents = list()
         elif self.parent_selec_strat == "tournament":
-            parents = set()
+            parents = list()
         else:
             # assert(self.parent_selec_strat == "truncation")
-            parents = set()
+            parents = list()
         return parents
 
     def generate_children(self, parents):
         children = []
         for parent_index in parents:
             child = self.model_generator()
-            parent_params = self.current_population[parent_index][0]
-        mask = [
-            random.random() < self.mutation_rate
-            for _ in range(len(self.current_population))
-        ]
+            parent_params = flatten_parameters(
+                self.current_population[parent_index][0].parameters()
+            )
+            for i in range(len(parent_params)):
+                if random.random() < self.mutation_rate:
+                    parent_params[i] += random.uniform(-1, 1) * parent_params[i]
+            child.set_parameters(build_parameters(self.parameter_shapes, parent_params))
+            self.env.reset(regen_track=False)
+            children.append((child, child.evaluate(self.env)))
+        return children
 
 
 @ex.automain
-def run():
-    model = SimpleNN()
-    params = [p for p in model.parameters() if p.requires_grad == True]
-    optimizer = EvolutionStrategy()
-    best_models = optimizer.run()
+def run(generations):
+    env = get_env()  # track_data=load_pickle("track_data.p"))
+    optimizer = EvolutionStrategy(env=env, model_generator=(lambda: NNAgent()))
+
+    best_models = optimizer.run(generations)
+    print(len(best_models))
+    print("Best fitness: " + str(best_models[-1][1]))
+    env.reset(regen_track=False)
+    best_models[-1][0].evaluate(env, True, True)

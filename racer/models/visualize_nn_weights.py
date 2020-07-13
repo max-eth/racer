@@ -9,10 +9,13 @@ from racer.utils import setup_sacred_experiment, load_pickle
 ex = Experiment("visualize_nn_weights", ingredients=[car_racing_env, simple_nn],)
 setup_sacred_experiment(ex)
 
+
 @ex.config
 def vis_config():
-    weights = 'weights.npy'
-    track = 'track_data.p'
+    weights = "weights.npy"
+    track = "track_data.p"
+
+
 # Put files in the main racer directory and run with
 # python -m racer.models.visualize_nn_weights with 'weights="best1761"' 'track="track_data.p"'
 # Afterwards run ./create_video.sh and enjoy the video in tmp/frames
