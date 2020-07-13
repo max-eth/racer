@@ -12,6 +12,7 @@ The above copyright notice and this permission notice shall be included in all c
 
 import matplotlib.pyplot as plt
 import skimage.transform
+import tempfile
 from scipy.spatial.transform import Rotation as R
 import skimage.color
 from gym.envs.box2d.car_racing import *
@@ -32,6 +33,7 @@ class CarRacingWrapper(CarRacing):
         headless,
         prerendered_data=None,
         render_view=False,
+        export_frames=False,
     ):
         """
         Wrapper for the car racing environment
@@ -50,8 +52,12 @@ class CarRacingWrapper(CarRacing):
         self.enable_angular_speed = enable_angular_speed
         self.enable_abs = enable_abs
         self.enable_steering = enable_steering
-
+        self.frames_path = tempfile.mkdtemp("frames")
+        self.export_frames = export_frames
+        self.frame = 0
         self.render_view = render_view
+
+
 
         if render_view:
             from pyformulas import screen
@@ -373,7 +379,7 @@ class CarRacingWrapper(CarRacing):
                 pyglet.image.get_buffer_manager().get_color_buffer().get_image_data()
             )
             arr = np.fromstring(image_data.get_data(), dtype=np.uint8, sep="")
-            arr = arr.reshape(WINDOW_H, WINDOW_W, 4)
+            arr = arr.reshape(VP_H, VP_W, 4)
             arr = arr[::-1, :, 0:3]
             imgs.append(arr)
 
@@ -497,10 +503,11 @@ class CarRacingWrapper(CarRacing):
         )
         self.transform = rendering.Transform()
 
-    def render(self, mode="human"):
+    def render(self, mode="human", store_frames=False):
         if self.headless:
             return
         assert mode in ["human", "state_pixels", "rgb_array"]
+        assert mode == "human"
         if self.viewer is None:
             self.setup_viewer()
 
@@ -557,6 +564,10 @@ class CarRacingWrapper(CarRacing):
         t.disable()
         self.render_indicators(WINDOW_W, WINDOW_H)
 
+        if store_frames:
+            pyglet.image.get_buffer_manager().get_color_buffer().save('tmp/frames/' + str(self.frame) + '.png')
+            self.frame += 1
+
         if mode == "human":
             win.flip()
             return self.viewer.isopen
@@ -564,6 +575,7 @@ class CarRacingWrapper(CarRacing):
         image_data = (
             pyglet.image.get_buffer_manager().get_color_buffer().get_image_data()
         )
+
         arr = np.fromstring(image_data.get_data(), dtype=np.uint8, sep="")
         arr = arr.reshape(VP_H, VP_W, 4)
         arr = arr[::-1, :, 0:3]
@@ -600,6 +612,7 @@ class CarRacingWrapper(CarRacing):
         self.max_reward = -100000000000000
         self.reward = 0.0
         self.prev_reward = 0.0
+        self.frame = 0
         self.tile_visited_count = 0
         self.t = 0.0
 

@@ -18,7 +18,7 @@ class Agent(ABC):
         """
         ...
 
-    def evaluate(self, env, visible=False) -> float:
+    def evaluate(self, env, visible=False, store_frames=False) -> float:
         """ Evaluate this agent on the environment, and return its fitness
             :param visible: whether to render the run in a window
         """
@@ -41,7 +41,7 @@ class Agent(ABC):
                 # print("Stopping early")
                 break
             if visible:
-                env.render(mode="human")
+                env.render(mode="human", store_frames=store_frames)
             # progress.update()
         # progress.close()
         # yappi.get_func_stats().print_all()
