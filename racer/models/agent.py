@@ -40,9 +40,8 @@ class Agent(ABC):
         """ Evaluate this agent on the environment, and return its fitness
             :param visible: whether to render the run in a window
         """
+        env.reset(regen_track=False)
 
-        if env.t > 0.02:
-            warnings.warn("This environment has not been reset")
         done = False
         neg_reward_count = 0
         # progress = tqdm()
