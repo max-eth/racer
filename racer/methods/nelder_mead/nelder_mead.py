@@ -206,4 +206,4 @@ def run(iterations):
     print(len(best_models))
     print("Best fitness: " + str(best_models[-1][1]))
     env.reset(regen_track=False)
-    best_models[-1][0].evaluate(env, True)
+    return best_models[-1][0].evaluate(env, True)
