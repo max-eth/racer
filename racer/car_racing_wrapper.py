@@ -395,7 +395,9 @@ class CarRacingWrapper(CarRacing):
         step_reward = 0
         done = False
         if action is not None:  # First step without action, called from reset()
-            tiles_of_wheels = {tile for wheel in self.car.wheels for tile in wheel.tiles}
+            tiles_of_wheels = {
+                tile for wheel in self.car.wheels for tile in wheel.tiles
+            }
             if all(t.road_friction != 1.0 for t in tiles_of_wheels):
                 self.reward -= 10
             else:
@@ -446,8 +448,8 @@ class CarRacingWrapper(CarRacing):
         vertical_ind(5, 0.02 * true_speed, (1, 1, 1))
 
         if self.last_action is not None:
-            vertical_ind(8, 2.5 * self.last_action[1], (0, 1, 0)) # gas
-            vertical_ind(9, 2.5 * self.last_action[2], (1, 0, 0)) # brake
+            vertical_ind(8, 2.5 * self.last_action[1], (0, 1, 0))  # gas
+            vertical_ind(9, 2.5 * self.last_action[2], (1, 0, 0))  # brake
 
         horiz_ind(20, -10.0 * self.car.wheels[0].joint.angle, (0, 1, 0))
         horiz_ind(30, -0.8 * self.car.hull.angularVelocity, (1, 0, 0))
@@ -461,7 +463,6 @@ class CarRacingWrapper(CarRacing):
 
         self.gas_label.draw()
         self.brake_label.draw()
-
 
     def setup_viewer(self):
         from gym.envs.classic_control import rendering

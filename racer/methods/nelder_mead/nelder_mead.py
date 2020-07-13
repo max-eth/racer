@@ -25,11 +25,11 @@ def nm_config():
     iterations = 2000
 
 
-
-
 class NelderMead:
     @ex.capture
-    def __init__(self, env, model_generator, alpha, beta, gamma, sigma, weighted_average):
+    def __init__(
+        self, env, model_generator, alpha, beta, gamma, sigma, weighted_average
+    ):
         self.env = env
         self.model_generator = model_generator
         model = model_generator()
@@ -100,10 +100,21 @@ class NelderMead:
         worst_model, worst_model_fitness = self.nns_fitness.pop(0)
         if self.weighted_average:
             total_fitness = sum(fitness for _, fitness in self.nns_fitness)
-            bary_model_parameters = [np.array([i*fitness/total_fitness for i in flatten_parameters(model.parameters())]) for model, fitness in self.nns_fitness]
+            bary_model_parameters = [
+                np.array(
+                    [
+                        i * fitness / total_fitness
+                        for i in flatten_parameters(model.parameters())
+                    ]
+                )
+                for model, fitness in self.nns_fitness
+            ]
         else:
             bary_model_parameters = np.mean(
-                [flatten_parameters(model.parameters()) for model, _ in self.nns_fitness]
+                [
+                    flatten_parameters(model.parameters())
+                    for model, _ in self.nns_fitness
+                ]
             )
         candidate_model1 = self.model_generator()
         candidate_model1.set_parameters(
@@ -187,8 +198,7 @@ class NelderMead:
                 best_models.append(self.nns_fitness[-1])
                 fname = os.path.join(run_dir_path, "best{}.npy".format(i))
                 np.save(
-                    fname,
-                    flatten_parameters(self.nns_fitness[-1][0].parameters()),
+                    fname, flatten_parameters(self.nns_fitness[-1][0].parameters()),
                 )
                 _run.add_artifact(fname, name="best{}".format(i))
                 self.env.reset(regen_track=False)
@@ -199,7 +209,7 @@ class NelderMead:
 @ex.automain
 def run(iterations):
 
-    env = get_env()#track_data=load_pickle("track_data.p"))
+    env = get_env(track_data=load_pickle("track_data.p"))
     optimizer = NelderMead(env=env, model_generator=(lambda: NNAgent()))
 
     best_models = optimizer.run(iterations)

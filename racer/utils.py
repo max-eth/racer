@@ -37,6 +37,7 @@ def build_parameters(parameter_shapes, parameters_flattened):
         index += size
     return parameters
 
+
 def load_pixels():
 
     pixels = []
@@ -65,6 +66,7 @@ def load_pixels():
         assert 0 <= y < 32
     assert len(pixels) == len(set(pixels))
     return pixels
+
 
 def setup_sacred_experiment(ex: sacred.Experiment, mongo=True):
     try:

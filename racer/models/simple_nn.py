@@ -81,27 +81,40 @@ class SimpleNN(nn.Module):
 
 class NNAgent(Agent):
     def parameters(self):
+        parameters = []
+        parameters.extend(self.net.parameters())
+
         if self.use_conv_net:
-            return (
-                p.detach().numpy()
-                for p in chain(self.image_net.parameters(), self.net.parameters())
-                if p.requires_grad
-            )
-        else:
-            return (
-                p.detach().numpy() for p in self.net.parameters() if p.requires_grad
-            )
+            parameters.extend(self.image_net.parameters())
+
+        if self.shared_weights:
+            parameters.extend(self.shared_net.parameters())
+
+        return (p.detach().numpy() for p in parameters if p.requires_grad)
 
     @simple_nn.capture
     def __init__(
-        self, *, hidden_layers, hidden_size, conv_net_config, use_conv_net, pixels, shared_weights
+        self,
+        *,
+        hidden_layers,
+        hidden_size,
+        conv_net_config,
+        use_conv_net,
+        pixels,
+        shared_weights
     ):
-        assert use_conv_net or pixels is not None, "must either use pixels or the conv nee"
+        assert (
+            use_conv_net or pixels is not None
+        ), "must either use pixels or the conv nee"
         self.pixels = pixels
         self.shared_weights = shared_weights
         if self.shared_weights:
-            self.left_pixels = sorted(((x, y) for x, y in self.pixels if y < 16), key=lambda x: x)
-            self.right_pixels = sorted(((x, y) for x, y in self.pixels if y >= 16), key=lambda x: (x[0], -x[1]))
+            self.left_pixels = sorted(
+                ((x, y) for x, y in self.pixels if y < 16), key=lambda x: x
+            )
+            self.right_pixels = sorted(
+                ((x, y) for x, y in self.pixels if y >= 16), key=lambda x: (x[0], -x[1])
+            )
             assert len(self.left_pixels) == len(self.right_pixels)
             self.shared_net = nn.Linear(len(self.left_pixels), len(self.left_pixels))
             assert hidden_layers > 1
@@ -122,18 +135,7 @@ class NNAgent(Agent):
         )
 
     def set_parameters(self, parameters):
-        for params_np, params_nn in zip(
-            parameters,
-            [
-                p
-                for p in (
-                    chain(self.image_net.parameters(), self.net.parameters())
-                    if self.use_conv_net
-                    else self.net.parameters()
-                )
-                if p.requires_grad
-            ],
-        ):
+        for params_np, params_nn in zip(parameters, self.parameters()):
             params_nn[:] = torch.tensor(params_np)
 
     def act(self, image, other) -> np.ndarray:
@@ -152,13 +154,15 @@ class NNAgent(Agent):
                     ).reshape(1, -1)
 
                     image_features = torch.cat(
-                        [self.shared_net(left_image_features).flatten(), self.shared_net(right_image_features).flatten()]
+                        [
+                            self.shared_net(left_image_features).flatten(),
+                            self.shared_net(right_image_features).flatten(),
+                        ]
                     )
                 else:
                     image_features = torch.tensor(
                         [image[0, 0, x, y] for x, y in self.pixels]
                     )
-
 
             both = torch.cat([image_features, other])
             out = self.net(both).numpy()
