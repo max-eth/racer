@@ -56,10 +56,17 @@ def load_pixels():
             width = len(line)
     reflected_pixels = []
     for x, y in pixels:
-        reflected_pixels.append((32 - x, y))
-    return pixels + reflected_pixels
+        reflected_pixels.append((x, 31 - y))
 
-def setup_sacred_experiment(ex: sacred.Experiment):
+    pixels += reflected_pixels
+
+    for x, y in pixels:
+        assert 0 <= x < 32
+        assert 0 <= y < 32
+    assert len(pixels) == len(set(pixels))
+    return pixels
+
+def setup_sacred_experiment(ex: sacred.Experiment, mongo=True):
     try:
         with open("credentials.txt") as f:
             content = [line.strip() for line in f]
@@ -67,14 +74,15 @@ def setup_sacred_experiment(ex: sacred.Experiment):
     except Exception as e:
         raise ValueError("Invalid credentials.txt") from e
 
-    ex.observers.append(
-        MongoObserver(
-            url="mongodb://{}:{}@{}/{}?authMechanism=SCRAM-SHA-1".format(
-                account, pw, ip, db_name
-            ),
-            db_name=db_name,
+    if mongo:
+        ex.observers.append(
+            MongoObserver(
+                url="mongodb://{}:{}@{}/{}?authMechanism=SCRAM-SHA-1".format(
+                    account, pw, ip, db_name
+                ),
+                db_name=db_name,
+            )
         )
-    )
 
     ex.captured_out_filter = apply_backspaces_and_linefeeds
 

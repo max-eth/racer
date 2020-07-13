@@ -23,6 +23,7 @@ def nn_config():
     random_seed = 4
     use_conv_net = False
     pixels = load_pixels()
+    shared_weights = True
 
 
 class ConvNet(nn.Module):
@@ -93,9 +94,19 @@ class NNAgent(Agent):
 
     @simple_nn.capture
     def __init__(
-        self, *, hidden_layers, hidden_size, conv_net_config, use_conv_net, pixels
+        self, *, hidden_layers, hidden_size, conv_net_config, use_conv_net, pixels, shared_weights
     ):
+        assert use_conv_net or pixels is not None, "must either use pixels or the conv nee"
         self.pixels = pixels
+        self.shared_weights = shared_weights
+        if self.shared_weights:
+            self.left_pixels = sorted(((x, y) for x, y in self.pixels if y < 16), key=lambda x: x)
+            self.right_pixels = sorted(((x, y) for x, y in self.pixels if y >= 16), key=lambda x: (x[0], -x[1]))
+            assert len(self.left_pixels) == len(self.right_pixels)
+            self.shared_net = nn.Linear(len(self.left_pixels), len(self.left_pixels))
+            assert hidden_layers > 1
+            hidden_layers -= 1
+
         self.use_conv_net = use_conv_net
         if self.use_conv_net:
             self.image_net = ConvNet(conv_net_config=conv_net_config, in_channels=1)
@@ -127,13 +138,29 @@ class NNAgent(Agent):
 
     def act(self, image, other) -> np.ndarray:
         with torch.no_grad():
+            other = torch.tensor(other)
             if self.use_conv_net:
                 image_features = self.image_net(torch.tensor(image)).flatten()
             else:
-                image_features = torch.tensor(
-                    [image[0, 0, coords[0], coords[1]] for coords in self.pixels]
-                )
-            both = torch.cat([image_features, torch.tensor(other)])
+                if self.shared_weights:
+                    left_image_features = torch.tensor(
+                        [image[0, 0, x, y] for x, y in self.left_pixels]
+                    ).reshape(1, -1)
+
+                    right_image_features = torch.tensor(
+                        [image[0, 0, x, y] for x, y in self.right_pixels]
+                    ).reshape(1, -1)
+
+                    image_features = torch.cat(
+                        [self.shared_net(left_image_features).flatten(), self.shared_net(right_image_features).flatten()]
+                    )
+                else:
+                    image_features = torch.tensor(
+                        [image[0, 0, x, y] for x, y in self.pixels]
+                    )
+
+
+            both = torch.cat([image_features, other])
             out = self.net(both).numpy()
             action = np.array([out[0], max(0, out[1]), max(0, -out[1])])
             return action
