@@ -14,6 +14,7 @@ car_racing_env = Ingredient("car_racing_env")
 
 global_env = None
 
+
 @car_racing_env.config
 def config():
     enable_abs = True
@@ -79,6 +80,7 @@ def init_env(
 
 def get_env():
     return global_env
+
 
 @car_racing_env.capture
 def get_track_data(

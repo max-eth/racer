@@ -154,9 +154,7 @@ class PSO:
                 self.env.reset(regen_track=False)
                 eval = NNAgent()
                 eval.set_flat_parameters(self.best_parameters)
-                eval.evaluate(
-                    self.env, True
-                )
+                eval.evaluate(self.env, True)
                 last_best_fitness = self.best_fitness
         return self.best_parameters
 

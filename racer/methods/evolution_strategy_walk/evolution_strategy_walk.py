@@ -70,7 +70,6 @@ class ESW:
 
         self.fitness = self.main_agent.evaluate(self.env)
 
-
     @ex.capture
     def run(self, iterations, _run):
         run_dir_path = tempfile.mkdtemp()
@@ -81,10 +80,8 @@ class ESW:
             self.step()
             _run.log_scalar("fitness", self.fitness, i)
             _run.log_scalar(
-                "avg_fitness",
-                self.avg_fitness,
-                i,
-                )
+                "avg_fitness", self.avg_fitness, i,
+            )
             if self.fitness > last_best_fitness:
                 fname = os.path.join(run_dir_path, "best{}.npy".format(i))
                 np.save(
@@ -94,9 +91,7 @@ class ESW:
                 self.env.reset(regen_track=False)
                 eval = NNAgent()
                 eval.set_flat_parameters(self.parameters)
-                eval.evaluate(
-                    self.env, True
-                )
+                eval.evaluate(self.env, True)
                 last_best_fitness = self.fitness
         return self.parameters
 
