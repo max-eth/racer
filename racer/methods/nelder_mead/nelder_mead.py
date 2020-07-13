@@ -5,7 +5,7 @@ from sacred import Experiment
 import numpy as np
 from tqdm import tqdm
 import functools
-from racer.car_racing_env import car_racing_env, get_env, get_track_data
+from racer.car_racing_env import car_racing_env, get_env, get_track_data, init_env
 from racer.models.simple_nn import simple_nn, NNAgent
 from racer.utils import setup_sacred_experiment, load_pickle, write_pickle
 from racer.utils import flatten_parameters, build_parameters
@@ -207,9 +207,8 @@ class NelderMead:
 
 
 @ex.automain
-def run(iterations):
-
-    env = get_env(track_data=load_pickle("track_data.p"))
+def run(iterations, _run):
+    env = init_env(track_data=load_pickle("track_data.p"))
     optimizer = NelderMead(env=env, model_generator=(lambda: NNAgent()))
 
     best_models = optimizer.run(iterations)

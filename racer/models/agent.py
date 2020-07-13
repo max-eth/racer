@@ -1,14 +1,32 @@
+from multiprocessing.pool import Pool
+
 import numpy as np
 from abc import abstractmethod, ABC
 import warnings
+from racer.models.parallel_eval import eval
 
-import yappi
-from tqdm import tqdm
+from sacred import SETTINGS
 
-from racer.car_racing_env import get_env
+# required to make the config shared across processes
+SETTINGS.CONFIG.READ_ONLY_CONFIG = False
 
 
 class Agent(ABC):
+    pool = None
+
+    @staticmethod
+    def parallel_evaluate(env, agents):
+        """ Evaluate a list of agents on an environment in parallel.
+
+            :param env: the environment
+            :param agents: the list of agents
+            :return: a list of floats corresponding to the evaluation results of the agents
+        """
+        if Agent.pool is None:
+            Agent.pool = Pool(processes=None)
+        result = Agent.pool.map(eval, agents)
+        return result
+
     @abstractmethod
     def act(self, image, other) -> np.ndarray:
         """ Perform an action. Should return an ndarray ``result`` with shape ``(3,)``, where
@@ -45,5 +63,5 @@ class Agent(ABC):
             # progress.update()
         # progress.close()
         # yappi.get_func_stats().print_all()
-        print(env.max_reward)
+        #print(env.max_reward)
         return env.max_reward

@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 from racer.car_racing_env import feature_size, car_racing_env, image_size
 from racer.models.agent import Agent
-from racer.utils import load_pixels
+from racer.utils import load_pixels, flatten_parameters, build_parameters
 
 simple_nn = Ingredient("simple_nn", ingredients=[car_racing_env])
 
@@ -23,7 +23,7 @@ def nn_config():
     random_seed = 4
     use_conv_net = False
     pixels = load_pixels()
-    shared_weights = True
+    shared_weights = False
 
 
 class ConvNet(nn.Module):
@@ -91,6 +91,13 @@ class NNAgent(Agent):
             parameters.extend(self.shared_net.parameters())
 
         return (p.detach().numpy() for p in parameters if p.requires_grad)
+
+    def get_flat_parameters(self):
+        return flatten_parameters(self.parameters())
+
+    def set_flat_parameters(self, flat_params):
+        shapes = [p.shape for p in self.parameters()]
+        self.set_parameters(build_parameters(shapes, flat_params))
 
     @simple_nn.capture
     def __init__(

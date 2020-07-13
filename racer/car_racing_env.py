@@ -12,6 +12,7 @@ import skimage.color
 
 car_racing_env = Ingredient("car_racing_env")
 
+global_env = None
 
 @car_racing_env.config
 def config():
@@ -51,7 +52,7 @@ def feature_size(
 
 
 @car_racing_env.capture
-def get_env(
+def init_env(
     enable_abs,
     enable_linear_speed,
     enable_angular_speed,
@@ -71,8 +72,13 @@ def get_env(
         prerendered_data=track_data,
         render_view=render_view,
     )
+    global global_env
+    global_env = env
     return env
 
+
+def get_env():
+    return global_env
 
 @car_racing_env.capture
 def get_track_data(
