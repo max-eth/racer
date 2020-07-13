@@ -38,7 +38,7 @@ def build_parameters(parameter_shapes, parameters_flattened):
     return parameters
 
 
-def load_pixels():
+def load_pixels(get_dimensions=False):
 
     pixels = []
     height = 0
@@ -55,6 +55,7 @@ def load_pixels():
             if width is not None and len(line) != width:
                 raise Exception("Different line lengths in use_pixels")
             width = len(line)
+    width *= 2
     reflected_pixels = []
     for x, y in pixels:
         reflected_pixels.append((x, 31 - y))
@@ -65,7 +66,11 @@ def load_pixels():
         assert 0 <= x < 32
         assert 0 <= y < 32
     assert len(pixels) == len(set(pixels))
-    return pixels
+
+    if get_dimensions:
+        return pixels + reflected_pixels, (width, height)
+    else:
+        return pixels + reflected_pixels
 
 
 def setup_sacred_experiment(ex: sacred.Experiment, mongo=True):

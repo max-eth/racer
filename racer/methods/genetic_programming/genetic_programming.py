@@ -1,20 +1,18 @@
+import random
 from sacred import Experiment
 
 from racer.car_racing_env import car_racing_env, feature_size, get_env
 from racer.models.genetic_agent import genetic, image_feature_size
 from racer.methods.method import Method
-from racer.methods.genetic_programming.building_blocks import (
-    combined_operators,
-    combined_terminals,
-)
+from racer.methods.genetic_programming.program_tree import ProgramTree
+from racer.methods.genetic_programming.parent_selection import TournamentSelector
+from racer.methods.genetic_programming.individual import Individual
+import racer.methods.genetic_programming.building_blocks as building_blocks
+
 from racer.models.genetic_agent import GeneticAgent
 from racer.utils import setup_sacred_experiment
 
-import deap.gp as gp
-from deap import base
-from deap import creator
-from deap import tools
-from deap.algorithms import varAnd
+import numpy as np
 
 ex = Experiment("genetic programming", ingredients=[car_racing_env, genetic])
 setup_sacred_experiment(ex)
@@ -22,169 +20,132 @@ setup_sacred_experiment(ex)
 
 @ex.config
 def experiment_config():
-    n_iter = 100
 
     regen_track = False
 
+    n_iter = 50
     n_individuals = 100
-    n_halloffame = 1
 
-    # probabilities
-    p_crossover = 0.5  # TODO tune
-    p_mutate = 0.1  # TODO tune
+    n_outputs = 2
 
-    # tree config
+    show_best = True
+
+    # tree gen config
+    operators = building_blocks.named_operators
+    terminals = building_blocks.terminals
     min_height = 4
-    max_height = 12
+    max_height = 8
+    p_build_terminal = 0.3
 
-    # methods and their parameters
-    selection_method = tools.selTournament, {"tournsize": 3}
-    mating_method = gp.cxOnePoint, {}
-    mutation_expression_gen = (
-        gp.genFull,
-        {"min_": 0, "max_": max_height},
-    )  # TODO 0 to same max height here ok?
-    mutation_method = gp.mutUniform, {}
+    # variation config
+    p_mutate = 0.3  # TODO tune
+    p_reproduce = 0.1
+    p_crossover = 0.6  # TODO tune
 
-    # tree building blocks
-    operators = combined_operators
-    terminals = combined_terminals
+    p_switch_terminal = 0.2
+
+    # selection config
+    selector_gen = TournamentSelector
+    selector_params = {"tournament_size": 3}
 
 
-class GeneticProgramming(Method):
+class GeneticOptimizer(Method):
     @ex.capture
     def __init__(
         self,
         n_individuals,
         min_height,
         max_height,
-        n_halloffame,
-        p_crossover,
-        p_mutate,
-        selection_method,
-        mating_method,
-        mutation_expression_gen,
-        mutation_method,
+        p_build_terminal,
         operators,
         terminals,
-        regen_track,
+        n_outputs
     ):
 
         n_inputs = image_feature_size() + feature_size()
+        self.env = get_env()
 
-        # build primitive set
-        pset = gp.PrimitiveSet(name="main", arity=n_inputs)
-        for op, arity, name in operators:
-            pset.addPrimitive(op, arity, name=name)
+        self.random_gen_params = {"ops": operators, "terminals": terminals, "n_inputs": n_inputs, "min_height": min_height, "max_height": max_height, "p_build_terminal": p_build_terminal}
 
-        for t in terminals:
-            pset.addTerminal(t)
-
-        # create times
-        creator.create(
-            "Fitness", base.Fitness, weights=(1,)
-        )  # Assuming that fitness maximized
-        creator.create("Individual", gp.PrimitiveTree, fitness=creator.Fitness)
-
-        # population generation
-        self.toolbox = base.Toolbox()
-        self.toolbox.register(
-            "expr", gp.genHalfAndHalf, pset=pset, min_=min_height, max_=max_height
-        )
-        self.toolbox.register(
-            "individual", tools.initIterate, creator.Individual, self.toolbox.expr
-        )
-        self.toolbox.register(
-            "population", tools.initRepeat, list, self.toolbox.individual
-        )
-        self.toolbox.register("compile", gp.compile, pset=pset)
-
-        env = get_env()
-
-        # evaluation and selection
-        def eval_individual(individual):
-            tree_func = self.toolbox.compile(expr=individual)
-            env.reset(regen_track=regen_track)  # This breaks with multiprocessing
-            return (
-                GeneticAgent(policy_function=tree_func).evaluate(
-                    env=env, visible=False
-                ),
-            )
-
-        def build_method(m):
-            method_fct, method_params = m
-            return lambda *args, **kwargs: method_fct(*args, **kwargs, **method_params)
-
-        self.toolbox.register("evaluate", eval_individual)
-        self.toolbox.register("select", build_method(selection_method))
-        self.toolbox.register("mate", build_method(mating_method))
-        self.toolbox.register("expr_mut", build_method(mutation_expression_gen))
-        self.toolbox.register(
-            "mutate",
-            build_method(mutation_method),
-            expr=self.toolbox.expr_mut,
-            pset=pset,
-        )
-
-        self.population = self.toolbox.population(n=n_individuals)
-        self.halloffame = tools.HallOfFame(n_halloffame)
-
-        self.p_crossover = p_crossover
-        self.p_mutate = p_mutate
-
-        # The following code is adapted from https://github.com/DEAP/deap/blob/master/deap/algorithms.py
-
-        # Evaluate the individuals with an invalid fitness
-        invalid_ind = [ind for ind in self.population if not ind.fitness.valid]
-        fitnesses = self.toolbox.map(self.toolbox.evaluate, invalid_ind)
-        for ind, fit in zip(invalid_ind, fitnesses):
-            ind.fitness.values = fit
-
-        if self.halloffame is not None:
-            self.halloffame.update(self.population)
+        self.best_individual = None
+        self.best_score = float("-inf")
+        self.population = [Individual(trees=[ProgramTree.random_tree(**self.random_gen_params) for _ in range(n_outputs)], eval_fct=self.eval_individual) for _ in range(n_individuals)]
 
     @ex.capture
-    def step(self):
-        # The following code is adapted from https://github.com/DEAP/deap/blob/master/deap/algorithms.py
-
-        # Select the next generation individuals
-        offspring = self.toolbox.select(
-            individuals=self.population, k=len(self.population)
+    def eval_individual(self, ind, regen_track, show_best):
+        self.env.reset(regen_track=regen_track)  # This breaks with multiprocessing
+        score = GeneticAgent(policy_function=ind).evaluate(
+            env=self.env, visible=False
         )
+        if score > self.best_score:
+            self.best_individual = ind
+            self.best_score = score
+            if show_best:
+                self.env.reset(regen_track=False)  # This breaks with multiprocessing
+                GeneticAgent(policy_function=ind).evaluate(
+                    env=self.env, visible=True
+                )
+        return score
 
-        # Vary the pool of individuals
-        offspring = varAnd(offspring, self.toolbox, self.p_crossover, self.p_mutate)
+    @ex.capture
+    def step(self, n_individuals, p_mutate, p_reproduce, p_crossover, selector_gen, selector_params, p_switch_terminal, min_height, max_height):
 
-        # Replace the current population by the offspring
-        self.population[:] = offspring
+        children = []
 
-        self._update_hof()  # TODO this was done before updating the population in the library source code. Still correct?
+        selector = selector_gen(self.population, **selector_params)
 
-        return self.toolbox.evaluate(self.halloffame[0])[0]
+        while len(children) < n_individuals:
+            rand_num = random.random()
+            if rand_num < p_crossover:
+                # crossover
+                idx_parent_1, idx_parent_2 = selector.get_couple(exclude=True)
+                parent_1, parent_2 = self.population[idx_parent_1], self.population[idx_parent_2]
+                parent_1_trees, parent_2_trees = parent_1.trees, parent_2.trees
+                trees_children = [ProgramTree.crossover(tree_1=t1, tree_2=t2, p_switch_terminal=p_switch_terminal, min_height=min_height, max_height=max_height) for t1, t2 in zip(parent_1_trees, parent_2_trees)]
 
-    def _update_hof(self):
-        # Evaluate the individuals with an invalid fitness
-        invalid_ind = [ind for ind in self.population if not ind.fitness.valid]
-        fitnesses = self.toolbox.map(self.toolbox.evaluate, invalid_ind)
-        for ind, fit in zip(invalid_ind, fitnesses):
-            ind.fitness.values = fit
+                child_1_trees, child_2_trees = zip(*trees_children)
 
-        # Update the hall of fame with the generated individuals
-        if self.halloffame is not None:
-            self.halloffame.update(self.population)
+                children.append(Individual(child_1_trees, eval_fct=self.eval_individual))
+                if len(children) < n_individuals:
+                    children.append(Individual(child_2_trees, eval_fct=self.eval_individual))
+            elif rand_num < p_crossover + p_reproduce:
+                # reproduce
+                idx_parent = selector.get_single(exclude=True)
+                parent = self.population[idx_parent]
+                children.append(parent)
+            else:
+                # mutate
+                idx_parent = selector.get_single(exclude=False)
+                parent = self.population[idx_parent]
+                child_trees = [ProgramTree.mutate(tree=tree, **self.random_gen_params) for tree in parent.trees]
+                child = Individual(trees=child_trees, eval_fct=self.eval_individual)
+                children.append(child)
+
+        self.population = children
+
+        return np.mean([ind.fitness for ind in self.population]), max(ind.fitness for ind in self.population)
 
     @ex.capture
     def run(self, n_iter, _run):
         # The following code is adapted from https://github.com/DEAP/deap/blob/master/deap/algorithms.py
         for gen in range(n_iter):
-            best_score = self.step()
-            _run.log_scalar("Best score", best_score, gen)
-            print("Gen {}, best score {}".format(gen, best_score))
+            mean_fitness, best_fitness = self.step()
+            _run.log_scalar("Best fitness", best_fitness, gen)
+            _run.log_scalar("Mean fitness", mean_fitness, gen)
+            print(
+                "Gen {}, best fitness {}, mean fitness {}".format(
+                    gen, best_fitness, mean_fitness
+                )
+            )
+            print(
+                "Mean no of operators: {}".format(
+                    np.mean([len(x) for x in self.population])
+                )
+            )
         return self.population
 
 
 @ex.automain
 def run():
-    optim = GeneticProgramming()
+    optim = GeneticOptimizer()
     optim.run()
-    best_models = optim.halloffame

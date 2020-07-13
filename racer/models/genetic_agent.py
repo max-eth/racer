@@ -2,6 +2,7 @@ import numpy as np
 from sacred import Ingredient
 from racer.car_racing_env import car_racing_env, image_size
 from racer.models.agent import Agent
+from racer.utils import load_pixels
 
 genetic = Ingredient("genetic", ingredients=[car_racing_env])
 
@@ -9,22 +10,7 @@ genetic = Ingredient("genetic", ingredients=[car_racing_env])
 @genetic.config
 def genetic_config():
 
-    pixels = []
-    height = 0
-    width = None
-
-    with open("resources/use_pixels.txt") as f:
-        for i, line in enumerate(f):
-            line = line[:-1]  # cut off \n
-            height += 1
-
-            for j, c in enumerate(line):
-                if c == "1":
-                    pixels.append((i, j))
-
-            if width is not None and len(line) != width:
-                raise Exception("Different line lengths in use_pixels")
-            width = len(line)
+    pixels, (width, height) = load_pixels(get_dimensions=True)
 
 
 @genetic.capture
@@ -66,7 +52,7 @@ class GeneticAgent(Agent):
         image_in = [image[0, 0, coords[0], coords[1]] for coords in self.pixels]
         x = image_in + list(other)
 
-        fct_out = self.policy_function(*zip(x, x))
+        fct_out = self.policy_function(*x)
         steering, acceleration = np.tanh(fct_out[0]), np.tanh(fct_out[1])
 
         gas, brake = max(0, acceleration), max(0, -acceleration)
