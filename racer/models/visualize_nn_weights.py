@@ -7,7 +7,7 @@ from racer.utils import build_parameters, flatten_parameters
 from racer.utils import setup_sacred_experiment, load_pickle
 
 ex = Experiment("visualize_nn_weights", ingredients=[car_racing_env, simple_nn],)
-setup_sacred_experiment(ex)
+setup_sacred_experiment(ex, mongo=False)
 
 
 @ex.config
@@ -28,4 +28,4 @@ def run(weights, track):
     shapes = [s.shape for s in agent.parameters()]
     agent.set_parameters(build_parameters(shapes, model_weights))
     env = init_env(track_data=load_pickle(track))
-    agent.evaluate(env, True, True)
+    print(agent.evaluate(env, False, False))
