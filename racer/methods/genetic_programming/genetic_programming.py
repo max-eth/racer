@@ -42,7 +42,7 @@ def experiment_config():
     random_gen_probabilties = p_gen_op, p_gen_arg, p_gen_const
 
     # variation config
-    n_elitism = 5
+    n_elitism = 0
     p_mutate = 0.25
     p_reproduce = 0.1
     p_crossover = 0.5
