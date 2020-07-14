@@ -26,6 +26,7 @@ named_operators = [
     + [(binary, 2) for binary in binary_operators]
 ]
 
-terminals = [0, 1, 2]
+# terminals = [0, 1, 2]
+# gen_val = lambda: random.choice(terminals)
 
-gen_val = lambda: random.choice(terminals)
+gen_val = lambda: random.gauss(1, 1)

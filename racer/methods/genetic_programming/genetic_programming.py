@@ -27,7 +27,7 @@ def experiment_config():
     regen_track = False
 
     n_iter = 100
-    n_individuals = 100
+    n_individuals = 200
 
     n_outputs = 2
 
@@ -38,14 +38,14 @@ def experiment_config():
     gen_val = building_blocks.gen_val
     min_height = 4
     max_height = 10
-    p_gen_op, p_gen_arg, p_gen_const = 0.7, 0.2, 0.1
+    p_gen_op, p_gen_arg, p_gen_const = 0.7, 0.25, 0.05
     random_gen_probabilties = p_gen_op, p_gen_arg, p_gen_const
 
     # variation config
-    p_mutate = 0.3
+    p_mutate = 0.25
     p_reproduce = 0.1
     p_crossover = 0.5
-    p_noise = 0.1
+    p_noise = 0.15
 
     gen_noise = lambda: random.gauss(mu=0, sigma=1)
 
@@ -54,7 +54,7 @@ def experiment_config():
 
     # selection config
     gen_selector = TournamentSelector
-    selector_params = {"tournament_size": 5}
+    selector_params = {"tournament_size": 4}
 
 
 class GeneticOptimizer(Method):
