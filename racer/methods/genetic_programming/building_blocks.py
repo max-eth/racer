@@ -3,10 +3,11 @@ import math
 
 
 def protected_div(left, right):
-    if right == 0:
+    if abs(right) < 1e-20:
         return 1
     else:
-        return left/right
+        return left / right
+
 
 binary_operators = [
     max,
@@ -25,4 +26,3 @@ named_operators = [
 ]
 
 terminals = [0, 1, 2]
-

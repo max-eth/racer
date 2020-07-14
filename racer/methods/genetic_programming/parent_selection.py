@@ -1,8 +1,8 @@
 from abc import abstractmethod, ABC
 import random
 
-class ParentSelector(ABC):
 
+class ParentSelector(ABC):
     @abstractmethod
     def get_couple(self):
         ...
@@ -26,9 +26,20 @@ class TournamentSelector(ParentSelector):
 
     def get_couple(self, exclude):
         candidates_1 = [(idx, ind) for idx, ind in enumerate(self.population)]
-        idx_parent_1 = max(random.sample(candidates_1, self.tournament_size), key=lambda x: x[1].fitness)[0]
-        candidates_2 = [(idx, ind) for idx, ind in enumerate(self.population) if idx != idx_parent_1 and tuple(sorted((idx_parent_1, idx))) not in self.couples_used]
-        idx_parent_2 = max(random.sample(candidates_2, self.tournament_size), key=lambda x: x[1].fitness)[0]
+        idx_parent_1 = max(
+            random.sample(candidates_1, self.tournament_size),
+            key=lambda x: x[1].fitness,
+        )[0]
+        candidates_2 = [
+            (idx, ind)
+            for idx, ind in enumerate(self.population)
+            if idx != idx_parent_1
+            and tuple(sorted((idx_parent_1, idx))) not in self.couples_used
+        ]
+        idx_parent_2 = max(
+            random.sample(candidates_2, self.tournament_size),
+            key=lambda x: x[1].fitness,
+        )[0]
 
         couple = tuple(sorted((idx_parent_1, idx_parent_2)))
 
@@ -37,8 +48,14 @@ class TournamentSelector(ParentSelector):
         return couple
 
     def get_single(self, exclude):
-        candidates = [(idx, ind) for idx, ind in enumerate(self.population) if idx not in self.singles_used]
-        idx_chosen = max(random.sample(candidates, self.tournament_size), key=lambda x: x[1].fitness)[0]
+        candidates = [
+            (idx, ind)
+            for idx, ind in enumerate(self.population)
+            if idx not in self.singles_used
+        ]
+        idx_chosen = max(
+            random.sample(candidates, self.tournament_size), key=lambda x: x[1].fitness
+        )[0]
 
         if exclude:
             self.singles_used.add(idx_chosen)
@@ -48,8 +65,3 @@ class TournamentSelector(ParentSelector):
     def reset(self):
         self.couples_used = set()
         self.singles_used = set()
-
-
-
-
-

@@ -8,4 +8,3 @@ class Individual:
 
     def __len__(self):
         return sum(len(tree) for tree in self.trees)
-

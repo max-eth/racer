@@ -4,6 +4,7 @@ from abc import abstractmethod, ABC
 
 # TODO speed up .height (set as field and update when mutating / crossover)
 
+
 class ProgramTree(ABC):
     @abstractmethod
     def __call__(self):
@@ -54,7 +55,9 @@ class ProgramTree(ABC):
         return current_node, (parent, idx_child), depth
 
     @staticmethod
-    def mutate(tree, ops, terminals, n_inputs, min_height, max_height, p_build_terminal):
+    def mutate(
+        tree, ops, terminals, n_inputs, min_height, max_height, p_build_terminal
+    ):
         assert tree.height() <= max_height
 
         # choose node to mutate
@@ -63,7 +66,8 @@ class ProgramTree(ABC):
         if id_node_swapped == 0:
             # mutating the entire tree
             return ProgramTree.random_tree(
-            ops, terminals, n_inputs, min_height, max_height, p_build_terminal)
+                ops, terminals, n_inputs, min_height, max_height, p_build_terminal
+            )
         else:
             tree_mutate = copy.deepcopy(tree)
 
@@ -72,7 +76,12 @@ class ProgramTree(ABC):
             )
 
             new_node = ProgramTree.random_tree(
-                ops, terminals, n_inputs, min_height - depth, max_height - depth, p_build_terminal
+                ops,
+                terminals,
+                n_inputs,
+                min_height - depth,
+                max_height - depth,
+                p_build_terminal,
             )
             parent.children[idx_child] = new_node
             return tree_mutate
@@ -102,7 +111,11 @@ class ProgramTree(ABC):
         if tree_1.height() == 0 or random.random() < p_switch_terminal:
             # choose terminal for first tree
             node_1_id = random.choice(
-                [idx for idx, node in enumerate(tree_1.in_order()) if node.height() == 0]
+                [
+                    idx
+                    for idx, node in enumerate(tree_1.in_order())
+                    if node.height() == 0
+                ]
             )
         else:
             # choose non-terminal for first tree
@@ -113,15 +126,21 @@ class ProgramTree(ABC):
         node_1, (parent_1, idx_child_1), _ = tree_1._find_by_in_order_id(node_1_id)
 
         if (
-            tree_2.height() == 0 or
-            tree_1.height() - node_1.height() == max_height or (
-            tree_1.height() - node_1.height() >= min_height
-            and tree_2.height() + node_1.height() <= max_height
-            and random.random() < p_switch_terminal)
+            tree_2.height() == 0
+            or tree_1.height() - node_1.height() == max_height
+            or (
+                tree_1.height() - node_1.height() >= min_height
+                and tree_2.height() + node_1.height() <= max_height
+                and random.random() < p_switch_terminal
+            )
         ):
             # choose terminal for second node
             node_2_id = random.choice(
-                [idx for idx, node in enumerate(tree_2.in_order()) if node.height() == 0]
+                [
+                    idx
+                    for idx, node in enumerate(tree_2.in_order())
+                    if node.height() == 0
+                ]
             )
         else:
             # chose non-terminal for second tree
@@ -221,7 +240,9 @@ class OpNode(ProgramTree):
         return res
 
     @staticmethod
-    def random_instance(ops, terminals, n_inputs, min_height, max_height, p_build_terminal):
+    def random_instance(
+        ops, terminals, n_inputs, min_height, max_height, p_build_terminal
+    ):
         assert max_height >= min_height
 
         if max_height == 0 or (min_height == 0 and random.random() < p_build_terminal):
