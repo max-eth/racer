@@ -21,16 +21,19 @@ def esw_config():
     num_evals = 100
     parallel = True
     iterations = 1000
+    weights_file = None
 
 
 class ESW:
     @ex.capture
-    def __init__(self, env, step_size, parallel, num_evals):
+    def __init__(self, env, step_size, parallel, num_evals, weights_file):
         self.env = env
         self.num_evals = num_evals
         self.step_size = step_size
         self.parallel = parallel
         self.main_agent = NNAgent()
+        if weights_file is not None:
+            self.main_agent.set_flat_parameters(np.load(weights_file))
         self.parameters = self.main_agent.get_flat_parameters()
         self.agents = [NNAgent() for _ in range(self.num_evals)]
         self.param_shape = self.agents[0].get_flat_parameters().shape
