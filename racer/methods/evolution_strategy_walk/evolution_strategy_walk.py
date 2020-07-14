@@ -17,17 +17,17 @@ setup_sacred_experiment(ex)
 
 @ex.config
 def esw_config():
-    step_size = 0.01
+    step_size = 0.1
     num_evals = 100
     parallel = True
-    iterations = 40
-    weights_file = "best620"
+    iterations = 100
+    weights_file = None #"best620"
 
     # options; softmax, proportional
     weighting = 'proportional'
 
     # zero means we take all, 0.2 means we drop the lowest 20%
-    proportional_filter = 0.2
+    proportional_filter = 0.5
 
 
 class ESW:
@@ -122,3 +122,4 @@ def run(iterations, _run):
     env = init_env(track_data=load_pickle("track_data.p"))
     optimizer = ESW(env=env)
     optimizer.run(iterations)
+    NNAgent.pool.close()
