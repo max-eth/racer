@@ -37,14 +37,14 @@ def experiment_config():
     operators = building_blocks.named_operators
     gen_val = building_blocks.gen_val
     min_height = 4
-    max_height = 12
+    max_height = 10
     p_gen_op, p_gen_arg, p_gen_const = 0.7, 0.2, 0.1
     random_gen_probabilties = p_gen_op, p_gen_arg, p_gen_const
 
     # variation config
-    p_mutate = 0.3  # TODO tune
+    p_mutate = 0.3
     p_reproduce = 0.1
-    p_crossover = 0.5  # TODO tune
+    p_crossover = 0.5
     p_noise = 0.1
 
     gen_noise = lambda: random.gauss(mu=0, sigma=1)
@@ -54,7 +54,7 @@ def experiment_config():
 
     # selection config
     gen_selector = TournamentSelector
-    selector_params = {"tournament_size": 3}
+    selector_params = {"tournament_size": 5}
 
 
 class GeneticOptimizer(Method):
@@ -246,4 +246,5 @@ def run(track_file):
     init_env(track_data=load_pickle(track_file))
     optim = GeneticOptimizer(run_dir_path=run_dir_path)
     optim.run()
+    GeneticAgent.pool.close()
     return optim.best_individual.fitness
