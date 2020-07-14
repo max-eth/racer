@@ -18,18 +18,28 @@ class ProgramTree(ABC):
     def display(self, prefix):
         ...
 
+    @abstractmethod
+    def _set_dirty(self):
+        """
+        Needs to be called after mutating any part of the tree
+        """
+        ...
+
     def __str__(self):
         return self.display(prefix="")
 
     @staticmethod
-    def random_tree(ops, terminals, n_inputs, min_height, max_height, p_build_terminal):
+    def random_tree(ops, gen_val, n_inputs, min_height, max_height, random_gen_probabilities):
+        """
+        probabilties = (p_op, p_arg, p_const)
+        """
         return OpNode.random_instance(
             ops=ops,
-            terminals=terminals,
+            gen_val=gen_val,
             n_inputs=n_inputs,
             min_height=min_height,
             max_height=max_height,
-            p_build_terminal=p_build_terminal,
+            random_gen_probabilties=random_gen_probabilities
         )
 
     def _find_by_in_order_id(self, id):
@@ -56,7 +66,7 @@ class ProgramTree(ABC):
 
     @staticmethod
     def mutate(
-        tree, ops, terminals, n_inputs, min_height, max_height, p_build_terminal
+        tree, ops, gen_val, n_inputs, min_height, max_height, random_gen_probabilities
     ):
         assert tree.height() <= max_height
 
@@ -66,7 +76,7 @@ class ProgramTree(ABC):
         if id_node_swapped == 0:
             # mutating the entire tree
             return ProgramTree.random_tree(
-                ops, terminals, n_inputs, min_height, max_height, p_build_terminal
+                ops, gen_val, n_inputs, min_height, max_height, random_gen_probabilities
             )
         else:
             tree_mutate = copy.deepcopy(tree)
@@ -77,18 +87,27 @@ class ProgramTree(ABC):
 
             new_node = ProgramTree.random_tree(
                 ops,
-                terminals,
+                gen_val,
                 n_inputs,
                 min_height - depth,
                 max_height - depth,
-                p_build_terminal,
+                random_gen_probabilities
             )
             parent.children[idx_child] = new_node
+            tree_mutate._set_dirty()
             return tree_mutate
 
     @abstractmethod
     def in_order(self):
         ...
+
+    @staticmethod
+    def noise(tree, gen_noise):
+        tree_noise = copy.deepcopy(tree)
+        for node in tree_noise.in_order():
+            if isinstance(node, ConstantNode):
+                node.add_val(gen_noise())
+        return tree_noise
 
     @staticmethod
     def crossover(tree_1, tree_2, p_switch_terminal, min_height=None, max_height=None):
@@ -170,22 +189,31 @@ class ProgramTree(ABC):
         else:
             parent_2.children[idx_child_2] = node_1
 
+        tree_1._set_dirty()
+        tree_2._set_dirty()
+
         return tree_1, tree_2
 
 
-class TerminalNode(ProgramTree):
-    def __init__(self, fct, name="TERM"):
-        self.fct = fct
-        self.name = name
+class ArgumentNode(ProgramTree):
+    def __init__(self, arg_idx, name=None):
+        self.arg_idx = arg_idx
+        if name is None:
+            self.name = "ARG_{}".format(arg_idx)
+        else:
+            self.name = name
 
     def __call__(self, *x):
-        return self.fct(x)
+        return x[self.arg_idx]
 
-    def __len__(self):
-        return 1
+    def _set_dirty(self):
+        pass
 
     def height(self):
         return 0
+
+    def __len__(self):
+        return 1
 
     def in_order(self):
         yield self
@@ -194,13 +222,40 @@ class TerminalNode(ProgramTree):
         return prefix + self.name + "\n"
 
     @staticmethod
-    def random_instance(terminals, n_inputs):
-        choice = random.randrange(n_inputs + len(terminals))
-        if choice < n_inputs:
-            return TerminalNode(fct=lambda x: x[choice], name="ARG_{}".format(choice))
-        else:
-            t = terminals[choice - n_inputs]
-            return TerminalNode(fct=lambda x: t, name=str(t))
+    def random_instance(n_inputs):
+        return ArgumentNode(arg_idx=random.randrange(n_inputs))
+
+
+class ConstantNode(ProgramTree):
+    def __init__(self, val):
+        self.val = val
+        self.name = str(val)
+
+    def add_val(self, x):
+        self.val += x
+        self.name = str(self.val)
+
+    def __call__(self, *x):
+        return self.val
+
+    def _set_dirty(self):
+        pass
+
+    def height(self):
+        return 0
+
+    def __len__(self):
+        return 1
+
+    def in_order(self):
+        yield self
+
+    def display(self, prefix):
+        return prefix + self.name + "\n"
+
+    @staticmethod
+    def random_instance(gen_val):
+        return ConstantNode(val=gen_val())
 
 
 class OpNode(ProgramTree):
@@ -215,17 +270,34 @@ class OpNode(ProgramTree):
         else:
             self.name = name
 
+        self.metrics_dirty = True  # True if height and length might be wrong
+        self._compute_metrics()
+
     def __call__(self, *x):
         children_out = []
         for child in self.children:
             children_out.append(child(*x))
         return self.fct(*children_out)
 
-    def height(self):  # not using field as height can change when mutating
-        return 1 + max(child.height() for child in self.children)
+    def _compute_metrics(self):
+        self.cached_height = 1 + max(child.height() for child in self.children)
+        self.cached_length = 1 + sum(len(child) for child in self.children)
+        self.metrics_dirty = False
+
+    def _set_dirty(self):
+        self.metrics_dirty = True
+        for child in self.children:
+            child._set_dirty()
+
+    def height(self):
+        if self.metrics_dirty:
+            self._compute_metrics()
+        return self.cached_height
 
     def __len__(self):
-        return 1 + sum(len(child) for child in self.children)
+        if self.metrics_dirty:
+            self._compute_metrics()
+        return self.cached_length
 
     def in_order(self):
         yield self
@@ -241,23 +313,30 @@ class OpNode(ProgramTree):
 
     @staticmethod
     def random_instance(
-        ops, terminals, n_inputs, min_height, max_height, p_build_terminal
+        ops, gen_val, n_inputs, min_height, max_height, random_gen_probabilties
     ):
         assert max_height >= min_height
 
-        if max_height == 0 or (min_height == 0 and random.random() < p_build_terminal):
+        p_op, p_arg, p_const = random_gen_probabilties
+
+        if max_height == 0 or (min_height == 0 and random.random() < p_arg + p_const):
             # choose terminal
-            return TerminalNode.random_instance(terminals=terminals, n_inputs=n_inputs)
+            if random.random() * (1-p_op) < p_arg:
+                # choose arg node
+                return ArgumentNode.random_instance(n_inputs=n_inputs)
+            else:
+                # choose const node
+                return ConstantNode.random_instance(gen_val=gen_val)
         else:
             fct, fct_arity, fct_name = random.choice(ops)
             children = [
                 OpNode.random_instance(
                     ops=ops,
-                    terminals=terminals,
+                    gen_val=gen_val,
                     n_inputs=n_inputs,
                     min_height=max(0, min_height - 1),
                     max_height=max_height - 1,
-                    p_build_terminal=p_build_terminal,
+                    random_gen_probabilties=random_gen_probabilties
                 )
                 for _ in range(fct_arity)
             ]

@@ -1,3 +1,4 @@
+import random
 import operator
 import math
 
@@ -26,3 +27,5 @@ named_operators = [
 ]
 
 terminals = [0, 1, 2]
+
+gen_val = lambda: random.choice(terminals)

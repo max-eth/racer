@@ -15,10 +15,9 @@ class Agent(ABC):
     pool = None
 
     @staticmethod
-    def parallel_evaluate(env, agents):
+    def parallel_evaluate(agents):
         """ Evaluate a list of agents on an environment in parallel.
 
-            :param env: the environment
             :param agents: the list of agents
             :return: a list of floats corresponding to the evaluation results of the agents
         """

@@ -1,7 +1,7 @@
 class Individual:
-    def __init__(self, trees, eval_fct):
+    def __init__(self, trees):
         self.trees = trees
-        self.fitness = eval_fct(self)
+        self.fitness = None
 
     def __call__(self, *x):
         return [tree(*x) for tree in self.trees]

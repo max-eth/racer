@@ -23,7 +23,7 @@ def experiment_config():
 
     regen_track = False
 
-    n_iter = 50
+    n_iter = 100
     n_individuals = 100
 
     n_outputs = 2
@@ -32,20 +32,25 @@ def experiment_config():
 
     # tree gen config
     operators = building_blocks.named_operators
-    terminals = building_blocks.terminals
+    gen_val = building_blocks.gen_val
     min_height = 4
     max_height = 12
-    p_build_terminal = 0.3
+    p_gen_op, p_gen_arg, p_gen_const = 0.7, 0.2, 0.1
+    random_gen_probabilties = p_gen_op, p_gen_arg, p_gen_const
 
     # variation config
     p_mutate = 0.3  # TODO tune
     p_reproduce = 0.1
-    p_crossover = 0.6  # TODO tune
+    p_crossover = 0.5  # TODO tune
+    p_noise = 0.1
 
-    p_switch_terminal = 0.2
+    gen_noise = lambda: random.gauss(mu=0, sigma=1)
+
+    # crossover config
+    p_switch_terminal = 0.2  # relevant, as there are many terminals in tree but switching terminal not as interesting
 
     # selection config
-    selector_gen = TournamentSelector
+    gen_selector = TournamentSelector
     selector_params = {"tournament_size": 3}
 
 
@@ -56,9 +61,9 @@ class GeneticOptimizer(Method):
         n_individuals,
         min_height,
         max_height,
-        p_build_terminal,
+        random_gen_probabilties,
         operators,
-        terminals,
+        gen_val,
         n_outputs,
     ):
 
@@ -67,37 +72,50 @@ class GeneticOptimizer(Method):
 
         self.random_gen_params = {
             "ops": operators,
-            "terminals": terminals,
+            "gen_val": gen_val,
             "n_inputs": n_inputs,
             "min_height": min_height,
             "max_height": max_height,
-            "p_build_terminal": p_build_terminal,
+            "random_gen_probabilities": random_gen_probabilties,
         }
 
-        self.best_individual = None
-        self.best_score = float("-inf")
-        self.population = [
+        population = [
             Individual(
                 trees=[
                     ProgramTree.random_tree(**self.random_gen_params)
                     for _ in range(n_outputs)
-                ],
-                eval_fct=self.eval_individual,
+                ]
             )
             for _ in range(n_individuals)
         ]
 
+        self.best_individual = None
+        self.update_population(population)
+
+
+    def update_population(self, new_population):
+        self.population = new_population
+        self.compute_fitnesses()
+
+
     @ex.capture
-    def eval_individual(self, ind, regen_track, show_best):
-        self.env.reset(regen_track=regen_track)  # This breaks with multiprocessing
-        score = GeneticAgent(policy_function=ind).evaluate(env=self.env, visible=False)
-        if score > self.best_score:
-            self.best_individual = ind
-            self.best_score = score
+    def compute_fitnesses(self):
+        new_individuals = [ind for ind in self.population if ind.fitness is None]
+        agents_to_evaluate = [GeneticAgent(policy_function=ind) for ind in new_individuals]
+        new_fitnesses = GeneticAgent.parallel_evaluate(agents_to_evaluate)
+        for ind, fitness in zip(new_individuals, new_fitnesses):
+            ind.fitness = fitness
+
+        best_in_generation = max(self.population, key=lambda ind: ind.fitness)
+        self.update_best(contender=best_in_generation)
+
+    @ex.capture
+    def update_best(self, contender, regen_track, show_best):
+        if self.best_individual is None or contender.fitness > self.best_individual.fitness:
+            self.best_individual = contender
             if show_best:
-                self.env.reset(regen_track=False)  # This breaks with multiprocessing
-                GeneticAgent(policy_function=ind).evaluate(env=self.env, visible=True)
-        return score
+                self.env.reset(regen_track=regen_track)
+                GeneticAgent(policy_function=self.best_individual).evaluate(env=self.env, visible=True)
 
     @ex.capture
     def step(
@@ -106,7 +124,9 @@ class GeneticOptimizer(Method):
         p_mutate,
         p_reproduce,
         p_crossover,
-        selector_gen,
+        p_noise,
+        gen_noise,
+        gen_selector,
         selector_params,
         p_switch_terminal,
         min_height,
@@ -115,7 +135,7 @@ class GeneticOptimizer(Method):
 
         children = []
 
-        selector = selector_gen(self.population, **selector_params)
+        selector = gen_selector(self.population, **selector_params)
 
         while len(children) < n_individuals:
             rand_num = random.random()
@@ -141,17 +161,27 @@ class GeneticOptimizer(Method):
                 child_1_trees, child_2_trees = zip(*trees_children)
 
                 children.append(
-                    Individual(child_1_trees, eval_fct=self.eval_individual)
+                    Individual(child_1_trees)
                 )
                 if len(children) < n_individuals:
                     children.append(
-                        Individual(child_2_trees, eval_fct=self.eval_individual)
+                        Individual(child_2_trees)
                     )
             elif rand_num < p_crossover + p_reproduce:
                 # reproduce
                 idx_parent = selector.get_single(exclude=True)
                 parent = self.population[idx_parent]
                 children.append(parent)
+            elif rand_num < p_crossover + p_reproduce + p_noise:
+                # add noise to constants
+                idx_parent = selector.get_single(exclude=False) # TODO exclude parent afterwards?
+                parent = self.population[idx_parent]
+                child_trees = [
+                    ProgramTree.noise(tree=tree, gen_noise=gen_noise)
+                    for tree in parent.trees
+                ]
+                child = Individual(trees=child_trees)
+                children.append(child)
             else:
                 # mutate
                 idx_parent = selector.get_single(exclude=False)
@@ -160,10 +190,10 @@ class GeneticOptimizer(Method):
                     ProgramTree.mutate(tree=tree, **self.random_gen_params)
                     for tree in parent.trees
                 ]
-                child = Individual(trees=child_trees, eval_fct=self.eval_individual)
+                child = Individual(trees=child_trees)
                 children.append(child)
 
-        self.population = children
+        self.update_population(children)
 
         return (
             np.mean([ind.fitness for ind in self.population]),
@@ -195,3 +225,4 @@ def run():
     init_env()
     optim = GeneticOptimizer()
     optim.run()
+    return optim.best_individual.fitness
