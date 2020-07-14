@@ -53,6 +53,27 @@ def feature_size(
 
 
 @car_racing_env.capture
+def feature_names(
+        enable_abs, enable_linear_speed, enable_angular_speed, enable_steering,
+):
+    names = [] # DO NOT CHANGE THE ORDER. it is derived from car_racing_wrappe.get_state
+
+    if enable_linear_speed:
+        names.append("linear_speed")
+
+    if enable_angular_speed:
+        names.append("angular_speed")
+
+    if enable_abs:
+        names += ["wheel_{}_omega".format(i) for i in range(4)]
+
+    if enable_steering:
+        names += ["steering"]
+
+    return names
+
+
+@car_racing_env.capture
 def init_env(
     enable_abs,
     enable_linear_speed,

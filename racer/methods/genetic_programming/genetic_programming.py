@@ -3,8 +3,8 @@ import tempfile
 import os
 from sacred import Experiment
 
-from racer.car_racing_env import car_racing_env, feature_size, get_env, init_env
-from racer.models.genetic_agent import genetic, image_feature_size
+from racer.car_racing_env import car_racing_env, feature_names, get_env, init_env
+from racer.models.genetic_agent import genetic, image_features
 from racer.methods.method import Method
 from racer.methods.genetic_programming.program_tree import ProgramTree
 from racer.methods.genetic_programming.parent_selection import TournamentSelector
@@ -72,13 +72,17 @@ class GeneticOptimizer(Method):
     ):
 
         self.run_dir_path = run_dir_path
-        n_inputs = image_feature_size() + feature_size()
+
+        image_feature_names = ["PIXEL_{}".format(coords) for coords in image_features()]
+        metric_feature_names = feature_names()
+        all_feature_names = image_feature_names + metric_feature_names  # order dependent on gentic_agent.act
+
         self.env = get_env()
 
         self.random_gen_params = {
             "ops": operators,
             "gen_val": gen_val,
-            "n_inputs": n_inputs,
+            "feature_names": all_feature_names,
             "min_height": min_height,
             "max_height": max_height,
             "random_gen_probabilities": random_gen_probabilties,

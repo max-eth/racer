@@ -19,6 +19,11 @@ def image_feature_size(pixels):
 
 
 @genetic.capture
+def image_features(pixels):
+    return pixels
+
+
+@genetic.capture
 def check_pixel_map_size(width, height):
     if width != image_size():
         raise Exception(

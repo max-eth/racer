@@ -30,7 +30,7 @@ class ProgramTree(ABC):
 
     @staticmethod
     def random_tree(
-        ops, gen_val, n_inputs, min_height, max_height, random_gen_probabilities
+        ops, gen_val, feature_names, min_height, max_height, random_gen_probabilities
     ):
         """
         probabilties = (p_op, p_arg, p_const)
@@ -38,7 +38,7 @@ class ProgramTree(ABC):
         return OpNode.random_instance(
             ops=ops,
             gen_val=gen_val,
-            n_inputs=n_inputs,
+            feature_names=feature_names,
             min_height=min_height,
             max_height=max_height,
             random_gen_probabilties=random_gen_probabilities,
@@ -68,7 +68,7 @@ class ProgramTree(ABC):
 
     @staticmethod
     def mutate(
-        tree, ops, gen_val, n_inputs, min_height, max_height, random_gen_probabilities
+        tree, ops, gen_val, feature_names, min_height, max_height, random_gen_probabilities
     ):
         assert tree.height() <= max_height
 
@@ -78,7 +78,7 @@ class ProgramTree(ABC):
         if id_node_swapped == 0:
             # mutating the entire tree
             return ProgramTree.random_tree(
-                ops, gen_val, n_inputs, min_height, max_height, random_gen_probabilities
+                ops, gen_val, feature_names, min_height, max_height, random_gen_probabilities
             )
         else:
             tree_mutate = copy.deepcopy(tree)
@@ -90,7 +90,7 @@ class ProgramTree(ABC):
             new_node = ProgramTree.random_tree(
                 ops,
                 gen_val,
-                n_inputs,
+                feature_names,
                 min_height - depth,
                 max_height - depth,
                 random_gen_probabilities,
@@ -224,8 +224,9 @@ class ArgumentNode(ProgramTree):
         return prefix + self.name + "\n"
 
     @staticmethod
-    def random_instance(n_inputs):
-        return ArgumentNode(arg_idx=random.randrange(n_inputs))
+    def random_instance(feature_names):
+        arg_idx = random.randrange(len(feature_names))
+        return ArgumentNode(arg_idx=arg_idx, name=feature_names[arg_idx])
 
 
 class ConstantNode(ProgramTree):
@@ -315,7 +316,7 @@ class OpNode(ProgramTree):
 
     @staticmethod
     def random_instance(
-        ops, gen_val, n_inputs, min_height, max_height, random_gen_probabilties
+        ops, gen_val, feature_names, min_height, max_height, random_gen_probabilties
     ):
         assert max_height >= min_height
 
@@ -325,7 +326,7 @@ class OpNode(ProgramTree):
             # choose terminal
             if random.random() * (1 - p_op) < p_arg:
                 # choose arg node
-                return ArgumentNode.random_instance(n_inputs=n_inputs)
+                return ArgumentNode.random_instance(feature_names=feature_names)
             else:
                 # choose const node
                 return ConstantNode.random_instance(gen_val=gen_val)
@@ -335,7 +336,7 @@ class OpNode(ProgramTree):
                 OpNode.random_instance(
                     ops=ops,
                     gen_val=gen_val,
-                    n_inputs=n_inputs,
+                    feature_names=feature_names,
                     min_height=max(0, min_height - 1),
                     max_height=max_height - 1,
                     random_gen_probabilties=random_gen_probabilties,
