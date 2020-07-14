@@ -36,13 +36,13 @@ def experiment_config():
     # tree gen config
     operators = building_blocks.named_operators
     gen_val = building_blocks.gen_val
-    min_height = 2
-    max_height = 6
+    min_height = 4
+    max_height = 10
     p_gen_op, p_gen_arg, p_gen_const = 0.7, 0.25, 0.05
     random_gen_probabilties = p_gen_op, p_gen_arg, p_gen_const
 
     # variation config
-    n_elitism = 0
+    n_elitism = 5
     p_mutate = 0.25
     p_reproduce = 0.1
     p_crossover = 0.5
