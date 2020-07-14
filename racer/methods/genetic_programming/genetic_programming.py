@@ -1,4 +1,6 @@
 import random
+import tempfile
+import os
 from sacred import Experiment
 
 from racer.car_racing_env import car_racing_env, feature_size, get_env, init_env
@@ -10,7 +12,7 @@ from racer.methods.genetic_programming.individual import Individual
 import racer.methods.genetic_programming.building_blocks as building_blocks
 
 from racer.models.genetic_agent import GeneticAgent
-from racer.utils import setup_sacred_experiment, load_pickle
+from racer.utils import setup_sacred_experiment, load_pickle, write_pickle
 
 import numpy as np
 
@@ -66,8 +68,10 @@ class GeneticOptimizer(Method):
         operators,
         gen_val,
         n_outputs,
+        run_dir_path=None,
     ):
 
+        self.run_dir_path = run_dir_path
         n_inputs = image_feature_size() + feature_size()
         self.env = get_env()
 
@@ -93,16 +97,16 @@ class GeneticOptimizer(Method):
         self.best_individual = None
         self.update_population(population)
 
-
     def update_population(self, new_population):
         self.population = new_population
         self.compute_fitnesses()
 
-
     @ex.capture
     def compute_fitnesses(self):
         new_individuals = [ind for ind in self.population if ind.fitness is None]
-        agents_to_evaluate = [GeneticAgent(policy_function=ind) for ind in new_individuals]
+        agents_to_evaluate = [
+            GeneticAgent(policy_function=ind) for ind in new_individuals
+        ]
         new_fitnesses = GeneticAgent.parallel_evaluate(agents_to_evaluate)
         for ind, fitness in zip(new_individuals, new_fitnesses):
             ind.fitness = fitness
@@ -111,12 +115,25 @@ class GeneticOptimizer(Method):
         self.update_best(contender=best_in_generation)
 
     @ex.capture
-    def update_best(self, contender, regen_track, show_best):
-        if self.best_individual is None or contender.fitness > self.best_individual.fitness:
+    def update_best(self, contender, regen_track, show_best, _run):
+        if (
+            self.best_individual is None
+            or contender.fitness > self.best_individual.fitness
+        ):
             self.best_individual = contender
+
+            if self.run_dir_path is not None:
+                fname = os.path.join(
+                    self.run_dir_path, "best_{}.pkl".format(self.generation)
+                )
+                write_pickle(self.best_individual, fname=fname)
+                _run.add_artifact(fname, name="best_{}".format(self.generation))
+
             if show_best:
                 self.env.reset(regen_track=regen_track)
-                GeneticAgent(policy_function=self.best_individual).evaluate(env=self.env, visible=True)
+                GeneticAgent(policy_function=self.best_individual).evaluate(
+                    env=self.env, visible=True
+                )
 
     @ex.capture
     def step(
@@ -161,13 +178,9 @@ class GeneticOptimizer(Method):
 
                 child_1_trees, child_2_trees = zip(*trees_children)
 
-                children.append(
-                    Individual(child_1_trees)
-                )
+                children.append(Individual(child_1_trees))
                 if len(children) < n_individuals:
-                    children.append(
-                        Individual(child_2_trees)
-                    )
+                    children.append(Individual(child_2_trees))
             elif rand_num < p_crossover + p_reproduce:
                 # reproduce
                 idx_parent = selector.get_single(exclude=True)
@@ -175,7 +188,9 @@ class GeneticOptimizer(Method):
                 children.append(parent)
             elif rand_num < p_crossover + p_reproduce + p_noise:
                 # add noise to constants
-                idx_parent = selector.get_single(exclude=False) # TODO exclude parent afterwards?
+                idx_parent = selector.get_single(
+                    exclude=False
+                )  # TODO exclude parent afterwards?
                 parent = self.population[idx_parent]
                 child_trees = [
                     ProgramTree.noise(tree=tree, gen_noise=gen_noise)
@@ -205,6 +220,7 @@ class GeneticOptimizer(Method):
     def run(self, n_iter, _run):
         # The following code is adapted from https://github.com/DEAP/deap/blob/master/deap/algorithms.py
         for gen in range(n_iter):
+            self.generation = gen
             mean_fitness, best_fitness = self.step()
             _run.log_scalar("Best fitness", best_fitness, gen)
             _run.log_scalar("Mean fitness", mean_fitness, gen)
@@ -223,7 +239,10 @@ class GeneticOptimizer(Method):
 
 @ex.automain
 def run(track_file):
+    run_dir_path = tempfile.mkdtemp()
+    print("Run directory:", run_dir_path)
+
     init_env(track_data=load_pickle(track_file))
-    optim = GeneticOptimizer()
+    optim = GeneticOptimizer(run_dir_path=run_dir_path)
     optim.run()
     return optim.best_individual.fitness

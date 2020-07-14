@@ -29,7 +29,9 @@ class ProgramTree(ABC):
         return self.display(prefix="")
 
     @staticmethod
-    def random_tree(ops, gen_val, n_inputs, min_height, max_height, random_gen_probabilities):
+    def random_tree(
+        ops, gen_val, n_inputs, min_height, max_height, random_gen_probabilities
+    ):
         """
         probabilties = (p_op, p_arg, p_const)
         """
@@ -39,7 +41,7 @@ class ProgramTree(ABC):
             n_inputs=n_inputs,
             min_height=min_height,
             max_height=max_height,
-            random_gen_probabilties=random_gen_probabilities
+            random_gen_probabilties=random_gen_probabilities,
         )
 
     def _find_by_in_order_id(self, id):
@@ -91,7 +93,7 @@ class ProgramTree(ABC):
                 n_inputs,
                 min_height - depth,
                 max_height - depth,
-                random_gen_probabilities
+                random_gen_probabilities,
             )
             parent.children[idx_child] = new_node
             tree_mutate._set_dirty()
@@ -321,7 +323,7 @@ class OpNode(ProgramTree):
 
         if max_height == 0 or (min_height == 0 and random.random() < p_arg + p_const):
             # choose terminal
-            if random.random() * (1-p_op) < p_arg:
+            if random.random() * (1 - p_op) < p_arg:
                 # choose arg node
                 return ArgumentNode.random_instance(n_inputs=n_inputs)
             else:
@@ -336,7 +338,7 @@ class OpNode(ProgramTree):
                     n_inputs=n_inputs,
                     min_height=max(0, min_height - 1),
                     max_height=max_height - 1,
-                    random_gen_probabilties=random_gen_probabilties
+                    random_gen_probabilties=random_gen_probabilties,
                 )
                 for _ in range(fct_arity)
             ]
