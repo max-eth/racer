@@ -37,11 +37,12 @@ def experiment_config():
     operators = building_blocks.named_operators
     gen_val = building_blocks.gen_val
     min_height = 2
-    max_height = 4
+    max_height = 6
     p_gen_op, p_gen_arg, p_gen_const = 0.7, 0.25, 0.05
     random_gen_probabilties = p_gen_op, p_gen_arg, p_gen_const
 
     # variation config
+    n_elitism = 5
     p_mutate = 0.25
     p_reproduce = 0.1
     p_crossover = 0.5
@@ -163,6 +164,7 @@ class GeneticOptimizer(Method):
     def step(
         self,
         n_individuals,
+        n_elitism,
         p_mutate,
         p_reproduce,
         p_crossover,
@@ -175,7 +177,10 @@ class GeneticOptimizer(Method):
         max_height,
     ):
 
-        children = []
+        children = set()
+
+        # elitism
+        children = children.union(sorted(self.population, key=lambda ind: ind.fitness, reverse=True)[:n_elitism])
 
         selector = gen_selector(self.population, **selector_params)
 
@@ -202,14 +207,14 @@ class GeneticOptimizer(Method):
 
                 child_1_trees, child_2_trees = zip(*trees_children)
 
-                children.append(Individual(child_1_trees))
+                children.add(Individual(child_1_trees))
                 if len(children) < n_individuals:
-                    children.append(Individual(child_2_trees))
+                    children.add(Individual(child_2_trees))
             elif rand_num < p_crossover + p_reproduce:
                 # reproduce
                 idx_parent = selector.get_single(exclude=True)
                 parent = self.population[idx_parent]
-                children.append(parent)
+                children.add(parent)
             elif rand_num < p_crossover + p_reproduce + p_noise:
                 # add noise to constants
                 idx_parent = selector.get_single(
@@ -221,7 +226,7 @@ class GeneticOptimizer(Method):
                     for tree in parent.trees
                 ]
                 child = Individual(trees=child_trees)
-                children.append(child)
+                children.add(child)
             else:
                 # mutate
                 idx_parent = selector.get_single(exclude=False)
@@ -231,9 +236,9 @@ class GeneticOptimizer(Method):
                     for tree in parent.trees
                 ]
                 child = Individual(trees=child_trees)
-                children.append(child)
+                children.add(child)
 
-        self.update_population(children)
+        self.update_population(list(children))
 
     @ex.capture
     def run(self, n_iter, _run):

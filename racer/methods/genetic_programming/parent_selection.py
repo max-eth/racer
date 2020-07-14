@@ -17,7 +17,8 @@ class ParentSelector(ABC):
 
 
 class TournamentSelector(ParentSelector):
-    def __init__(self, population, tournament_size):
+    def __init__(self, population: list, tournament_size):
+        assert isinstance(population, list)
         self.population = population
 
         self.tournament_size = tournament_size
