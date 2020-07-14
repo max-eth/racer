@@ -16,12 +16,15 @@ setup_sacred_experiment(ex)
 
 @ex.config
 def pso_config():
-    num_particles = 40
+    num_particles = 20
     global_best_bias = 2
     own_best_bias = 2
     parallel = True
 
     iterations = 2000
+    add_local_force = True
+    local_force_bias = 1
+    local_samples_per_particle = 5
 
 
 class Particle:
@@ -42,7 +45,9 @@ class Particle:
         self.fitness = fitness
 
     @ex.capture
-    def __init__(self, global_best_bias, own_best_bias):
+    def __init__(
+        self, global_best_bias, own_best_bias,
+    ):
         self.global_best_bias = global_best_bias
         self.own_best_bias = own_best_bias
         # sample the initial position from pytorch's init functions
@@ -52,8 +57,8 @@ class Particle:
         self.fitness = float("-inf")
         self.best_fitness = float("-inf")
 
-        # initial velocity is a random step
-        self.velocity = NNAgent().get_flat_parameters() - self.position
+        # initial velocity is 0
+        self.velocity = np.zeros_like(self.position)
 
     def evaluate(self, env):
         # NOTE: this method does not set the best and cost parameters to make it easier to use with
@@ -104,7 +109,6 @@ class PSO:
 
     @ex.capture
     def step(self, _run):
-
         # update positions
         for particle in self.population:
             particle.step(self.best_parameters)
