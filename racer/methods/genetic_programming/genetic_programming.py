@@ -95,11 +95,34 @@ class GeneticOptimizer(Method):
         ]
 
         self.best_individual = None
+        self.generation = 0
         self.update_population(population)
 
-    def update_population(self, new_population):
+    @ex.capture
+    def update_population(self, new_population, _run):
         self.population = new_population
         self.compute_fitnesses()
+        self.generation += 1
+        best_in_generation = max(self.population, key=lambda ind: ind.fitness)
+        self.update_best(contender=best_in_generation)
+
+        _run.log_scalar("Best fitness", best_in_generation.fitness, self.generation)
+        mean_fitness = np.mean([ind.fitness for ind in self.population])
+        _run.log_scalar("Mean fitness", mean_fitness, self.generation)
+        _run.log_scalar(
+            "Best ever fitness", self.best_individual.fitness, self.generation
+        )
+
+        print(
+            "Gen {}, best fitness {}, mean fitness {}".format(
+                self.generation, best_in_generation.fitness, mean_fitness
+            )
+        )
+        print(
+            "Mean no of operators: {}".format(
+                np.mean([len(x) for x in self.population])
+            )
+        )
 
     @ex.capture
     def compute_fitnesses(self):
@@ -110,9 +133,6 @@ class GeneticOptimizer(Method):
         new_fitnesses = GeneticAgent.parallel_evaluate(agents_to_evaluate)
         for ind, fitness in zip(new_individuals, new_fitnesses):
             ind.fitness = fitness
-
-        best_in_generation = max(self.population, key=lambda ind: ind.fitness)
-        self.update_best(contender=best_in_generation)
 
     @ex.capture
     def update_best(self, contender, regen_track, show_best, _run):
@@ -211,29 +231,10 @@ class GeneticOptimizer(Method):
 
         self.update_population(children)
 
-        return (
-            np.mean([ind.fitness for ind in self.population]),
-            max(ind.fitness for ind in self.population),
-        )
-
     @ex.capture
     def run(self, n_iter, _run):
-        # The following code is adapted from https://github.com/DEAP/deap/blob/master/deap/algorithms.py
-        for gen in range(n_iter):
-            self.generation = gen
-            mean_fitness, best_fitness = self.step()
-            _run.log_scalar("Best fitness", best_fitness, gen)
-            _run.log_scalar("Mean fitness", mean_fitness, gen)
-            print(
-                "Gen {}, best fitness {}, mean fitness {}".format(
-                    gen, best_fitness, mean_fitness
-                )
-            )
-            print(
-                "Mean no of operators: {}".format(
-                    np.mean([len(x) for x in self.population])
-                )
-            )
+        for _ in range(n_iter):
+            self.step()
         return self.population
 
 
