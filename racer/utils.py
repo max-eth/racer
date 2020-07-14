@@ -68,9 +68,9 @@ def load_pixels(get_dimensions=False):
     assert len(pixels) == len(set(pixels))
 
     if get_dimensions:
-        return pixels + reflected_pixels, (width, height)
+        return pixels, (width, height)
     else:
-        return pixels + reflected_pixels
+        return pixels
 
 
 def setup_sacred_experiment(ex: sacred.Experiment, mongo=True):
