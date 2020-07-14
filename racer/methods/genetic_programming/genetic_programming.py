@@ -10,7 +10,7 @@ from racer.methods.genetic_programming.individual import Individual
 import racer.methods.genetic_programming.building_blocks as building_blocks
 
 from racer.models.genetic_agent import GeneticAgent
-from racer.utils import setup_sacred_experiment
+from racer.utils import setup_sacred_experiment, load_pickle
 
 import numpy as np
 
@@ -21,6 +21,7 @@ setup_sacred_experiment(ex)
 @ex.config
 def experiment_config():
 
+    track_file = "track_data.p"
     regen_track = False
 
     n_iter = 100
@@ -221,8 +222,8 @@ class GeneticOptimizer(Method):
 
 
 @ex.automain
-def run():
-    init_env()
+def run(track_file):
+    init_env(track_data=load_pickle(track_file))
     optim = GeneticOptimizer()
     optim.run()
     return optim.best_individual.fitness

@@ -71,7 +71,7 @@ class CarRacingWrapper(CarRacing):
             self.reset(regen_track=False)
         else:
             self.road_vertex_list = None
-            self.reset()
+            self.reset(regen_track=True)
 
     def export(self):
         return {
@@ -607,7 +607,7 @@ class CarRacingWrapper(CarRacing):
             np.concatenate(vectors, axis=0).astype(np.float32),
         )
 
-    def reset(self, regen_track=True):
+    def reset(self, regen_track):
         self._destroy()
         self.max_reward = -100000000000000
         self.reward = 0.0
