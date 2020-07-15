@@ -3,7 +3,7 @@ import tempfile
 import os
 from tqdm import tqdm
 
-from racer.car_racing_env import car_racing_env, get_env
+from racer.car_racing_env import car_racing_env, get_env, init_env
 from racer.utils import setup_sacred_experiment
 from racer.models.simple_nn import SimpleNN, simple_nn, NNAgent
 from racer.methods.method import Method
@@ -18,11 +18,11 @@ setup_sacred_experiment(ex)
 
 @ex.config
 def cfg():
-    mutation_rate = 0.6
+    mutation_rate = 0.3
     parent_selec_strat = "random"
     children_selec_strat = "n_plus_lambda"
-    population_size = 100
-    num_children = 40
+    population_size = 120
+    num_children = 50
     generations = 500
 
 
@@ -104,7 +104,10 @@ class EvolutionStrategy:
 
     def select_parents(self):
         if self.parent_selec_strat == "random":
-            parents = random.sample(range(self.N), self.num_children)
+            if self.children_selec_strat == "lambda":
+                parents = random.choices(range(self.N), k=self.num_children)
+            else:
+                parents = random.sample(range(self.N), self.num_children)
         elif self.parent_selec_strat == "roulette":
             parents = list()
         elif self.parent_selec_strat == "tournament":
@@ -123,7 +126,9 @@ class EvolutionStrategy:
             )
             for i in range(len(parent_params)):
                 if random.random() < self.mutation_rate:
-                    parent_params[i] += random.uniform(-1, 1) * parent_params[i]
+                    gaussian_noise = np.random.normal(0, 1)
+
+                    parent_params[i] += gaussian_noise
             child.set_parameters(build_parameters(self.parameter_shapes, parent_params))
             self.env.reset(regen_track=False)
             children.append((child, child.evaluate(self.env)))
@@ -132,7 +137,7 @@ class EvolutionStrategy:
 
 @ex.automain
 def run(generations):
-    env = get_env()  # track_data=load_pickle("track_data.p"))
+    env = init_env()  # track_data=load_pickle("track_data.p"))
     optimizer = EvolutionStrategy(env=env, model_generator=(lambda: NNAgent()))
 
     best_models = optimizer.run(generations)

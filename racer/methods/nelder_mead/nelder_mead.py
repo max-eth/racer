@@ -3,13 +3,13 @@ import tempfile
 
 from sacred import Experiment
 import numpy as np
+import random
 from scipy.special import softmax
 from tqdm import tqdm
 import functools
-from racer.car_racing_env import car_racing_env, get_env, get_track_data
+from racer.car_racing_env import car_racing_env, get_env, get_track_data, init_env
 from racer.models.simple_nn import simple_nn, NNAgent
 from racer.utils import setup_sacred_experiment, load_pickle, write_pickle
-from racer.utils import flatten_parameters, build_parameters
 
 ex = Experiment("nelder_mead", ingredients=[car_racing_env, simple_nn],)
 setup_sacred_experiment(ex)
@@ -18,44 +18,54 @@ setup_sacred_experiment(ex)
 @ex.config
 def nm_config():
     n = 44
-    alpha = 1
-    beta = 2
+    alpha = 0.7
+    beta = 1.8
     gamma = 0.5
-    sigma = 1.5
+    sigma = 2.5
     weighted_average = True
-    iterations = 500
+    simplex_init = "random_n"
+    rate = 0.01
+    random_n_init = 30
+    iterations = 1000
 
 
 class NelderMead:
     @ex.capture
     def __init__(
-        self, env, model_generator, alpha, beta, gamma, sigma, weighted_average
+        self,
+        env,
+        model_generator,
+        alpha,
+        beta,
+        gamma,
+        sigma,
+        weighted_average,
+        simplex_init,
+        rate=None,
+        random_n_init=None,
     ):
         self.env = env
         self.model_generator = model_generator
         model = model_generator()
         self.nns_fitness = [(model, model.evaluate(env=env))]
-        self.parameter_shapes = [params.shape for params in model.parameters()]
-        self.N = sum([params.size for params in model.parameters()])
+        self.N = len(model.get_flat_parameters())
         print(self.N)
         self.alpha = alpha
         self.beta = beta
+        self.simplex_init = simplex_init
+        self.random_n_init = random_n_init
+        self.rate = rate
+        assert simplex_init in ["varadhan", "random_gauss", "random_n", "random"]
+        if simplex_init == "random_gauss":
+            assert rate is not None
+        elif simplex_init == "random_n":
+            assert random_n_init is not None
         self.gamma = gamma
         self.sigma = sigma
         self.weighted_average = weighted_average
         assert beta > alpha
         assert gamma < 1
-
-    def build_parameters(self, parameters_flattened):
-        parameters = []
-        index = 0
-        for shape in self.parameter_shapes:
-            size = functools.reduce(lambda a, b: a * b, shape)
-            parameters.append(
-                parameters_flattened[index : index + size].reshape(*shape)
-            )
-            index += size
-        return parameters
+        self.initialize_simplex()
 
     def add_model(self, model, model_fitness, nns_fitness):
         for i, (m, fitness) in enumerate(nns_fitness):
@@ -64,81 +74,103 @@ class NelderMead:
                 return
         nns_fitness.insert(len(nns_fitness), (model, model_fitness))
 
-    def initialize_models(self):
-        for _ in tqdm(range(self.N + 1 - len(self.nns_fitness))):
-            model = self.model_generator()
-            self.env.reset(regen_track=False)
-            model_fitness = model.evaluate(env=self.env)
-            self.add_model(model, model_fitness, self.nns_fitness)
+    def initialize_simplex(self):
+        assert len(self.nns_fitness) == 1
+        if self.simplex_init == "varadhan":
+            start_point_params = self.nns_fitness[0][0].get_flat_parameters()
+            c = max(1.0, np.linalg.norm(start_point_params))
+            beta_1 = (c / (self.N * np.sqrt(2))) * (np.sqrt(self.N + 1) + self.N - 1)
+            beta_2 = (c / (self.N * np.sqrt(2))) * (np.sqrt(self.N + 1) - 1)
+            models = []
+            for i in range(self.N):
+                model_params = start_point_params
+                model_params += beta_2
+                model_params[i] += beta_1 - beta_2
+                model = self.model_generator()
+                model.set_flat_parameters(model_params)
+                models.append(model)
+        elif self.simplex_init == "random_gauss":
+            duplicated_parameters = np.tile(
+                self.nns_fitness[0][0].get_flat_parameters(), [self.N, 1]
+            )
+            randomized_parameters = np.random.normal(duplicated_parameters, self.rate)
+            models = []
+            for params in randomized_parameters:
+                model = self.model_generator()
+                model.set_flat_parameters(params)
+                models.append(model)
+        elif self.simplex_init == "random_n":
+            start_point_params = self.nns_fitness[0][0].get_flat_parameters()
+            models = []
+            for i in range(self.N):
+                indicies = random.sample(range(self.N), self.random_n_init)
+                model = self.model_generator()
+                model_params = start_point_params
+                for index in indicies:
+                    model_params[index] += random.uniform(-1, 1) * model_params[index]
+                model.set_flat_parameters(model_params)
+                models.append(model)
+        else:
+            assert self.simplex_init == "random"
+            models = []
+            for _ in range(self.N):
+                models.append(self.model_generator())
+
+        models_fitness = NNAgent.parallel_evaluate(self.env, models)
+        for model, fitness in tqdm(zip(models, models_fitness)):
+            self.add_model(model, fitness, self.nns_fitness)
+
         assert len(self.nns_fitness) == self.N + 1
 
     def reset_nns(self):
         print("REEEEEEEEEEEEEEEEEEESET")
         best_model, best_model_fitness = self.nns_fitness.pop()
         nns_fitness_new = [(best_model, best_model_fitness)]
-        for old_model, old_model_fitness in tqdm(self.nns_fitness):
+        new_models = []
+        for old_model, old_model_fitness in self.nns_fitness:
             new_model = self.model_generator()
-            new_model.set_parameters(
-                build_parameters(
-                    self.parameter_shapes,
-                    flatten_parameters(old_model.parameters())
-                    + self.sigma
-                    * (
-                        flatten_parameters(best_model.parameters())
-                        - flatten_parameters(old_model.parameters())
-                    ),
-                )
+            new_model.set_flat_parameters(
+                old_model.get_flat_parameters()
+                + self.sigma
+                * (best_model.get_flat_parameters() - old_model.get_flat_parameters())
             )
-            self.env.reset(regen_track=False)
-            new_model_fitness = new_model.evaluate(env=self.env)
-            self.add_model(new_model, new_model_fitness, nns_fitness_new)
+            new_models.append(new_model)
+        new_models_fitness = NNAgent.parallel_evaluate(self.env, new_models)
+        for model, fitness in tqdm(zip(new_models, new_models_fitness)):
+            self.add_model(model, fitness, nns_fitness_new)
         assert len(nns_fitness_new) == self.N + 1
         self.nns_fitness = nns_fitness_new
 
     def step(self):
-        if len(self.nns_fitness) < self.N + 1:
-            self.initialize_models()
         worst_model, worst_model_fitness = self.nns_fitness.pop(0)
         if self.weighted_average:
-            weights = softmax([fitness for _, fitness in self.nns_fitness])
+            total_sum = sum(fitness for _, fitness in self.nns_fitness)
             bary_model_parameters = np.sum(
-                np.array([i * weight for i in flatten_parameters(model.parameters())])
-                for (model, _), weight in zip(self.nns_fitness, weights)
+                np.fromiter(
+                    np.array(
+                        [i * fitness / total_sum for i in model.get_flat_parameters()]
+                    )
+                    for (model, fitness) in self.nns_fitness
+                )
             )
         else:
             bary_model_parameters = np.mean(
-                [
-                    flatten_parameters(model.parameters())
-                    for model, _ in self.nns_fitness
-                ]
+                [model.get_flat_parameters() for model, _ in self.nns_fitness]
             )
         candidate_model1 = self.model_generator()
-        candidate_model1.set_parameters(
-            build_parameters(
-                self.parameter_shapes,
-                bary_model_parameters
-                + self.alpha
-                * (
-                    bary_model_parameters - flatten_parameters(worst_model.parameters())
-                ),
-            )
+        candidate_model1.set_flat_parameters(
+            bary_model_parameters
+            + self.alpha * (bary_model_parameters - worst_model.get_flat_parameters())
         )
-        self.env.reset(regen_track=False)
+
         candidate_model1_fitness = candidate_model1.evaluate(env=self.env)
         if candidate_model1_fitness > self.nns_fitness[-1][1]:
             candidate_model2 = self.model_generator()
-            candidate_model2.set_parameters(
-                build_parameters(
-                    self.parameter_shapes,
-                    bary_model_parameters
-                    + self.beta
-                    * (
-                        bary_model_parameters
-                        - flatten_parameters(worst_model.parameters())
-                    ),
-                )
+            candidate_model2.set_flat_parameters(
+                bary_model_parameters
+                + self.beta
+                * (bary_model_parameters - worst_model.get_flat_parameters()),
             )
-            self.env.reset(regen_track=False)
             candidate_model2_fitness = candidate_model2.evaluate(env=self.env)
             if candidate_model1_fitness < candidate_model2_fitness:
                 self.add_model(
@@ -156,18 +188,11 @@ class NelderMead:
             else:
                 better_model = candidate_model1
             candidate_model2 = self.model_generator()
-            candidate_model2.set_parameters(
-                build_parameters(
-                    self.parameter_shapes,
-                    flatten_parameters(better_model.parameters())
-                    + self.gamma
-                    * (
-                        bary_model_parameters
-                        - flatten_parameters(better_model.parameters())
-                    ),
-                )
+            candidate_model2.set_flat_parameters(
+                better_model.get_flat_parameters()
+                + self.gamma
+                * (bary_model_parameters - better_model.get_flat_parameters()),
             )
-            self.env.reset(regen_track=False)
             candidate_model2_fitness = candidate_model2.evaluate(env=self.env)
             if candidate_model2_fitness > worst_model_fitness:
                 self.add_model(
@@ -194,10 +219,9 @@ class NelderMead:
                 best_models.append(self.nns_fitness[-1])
                 fname = os.path.join(run_dir_path, "best{}.npy".format(i))
                 np.save(
-                    fname, flatten_parameters(self.nns_fitness[-1][0].parameters()),
+                    fname, self.nns_fitness[-1][0].get_flat_parameters(),
                 )
                 _run.add_artifact(fname, name="best{}".format(i))
-                self.env.reset(regen_track=False)
                 self.nns_fitness[-1][0].evaluate(self.env, True)
         return best_models
 
@@ -205,11 +229,10 @@ class NelderMead:
 @ex.automain
 def run(iterations):
 
-    env = get_env()  # track_data=load_pickle("track_data.p"))
+    env = init_env(track_data=load_pickle("track_data.p"))
     optimizer = NelderMead(env=env, model_generator=(lambda: NNAgent()))
 
     best_models = optimizer.run(iterations)
     print(len(best_models))
     print("Best fitness: " + str(best_models[-1][1]))
-    env.reset(regen_track=False)
-    best_models[-1][0].evaluate(env, True, True)
+    best_models[-1][0].evaluate(env, True, False)
