@@ -8,7 +8,7 @@ from scipy.special import softmax
 from tqdm import tqdm
 
 from racer.car_racing_env import car_racing_env, get_env, init_env
-from racer.methods.evolution_strategy_walk.optimizers import Adam, SGDMomentum
+from racer.methods.evolution_strategy_walk.optimizers import Adam, SGDMomentum, BasicSGD
 from racer.models.simple_nn import simple_nn, NNAgent
 from racer.utils import setup_sacred_experiment, load_pickle
 
@@ -18,19 +18,19 @@ setup_sacred_experiment(ex)
 
 @ex.config
 def esw_config():
-    sigma = 0.1
+    sigma = 0.5
     num_evals = 256
     parallel = True
     iterations = 200
     weights_file = None  # "best620"
 
     # options; softmax, proportional, ranked
-    weighting = "ranked"
+    weighting = "softmax"
 
     # zero means we take all, 0.2 means we drop the lowest 20%
-    proportional_filter = 0.9
-    weight_decay = 0.01
-    optimizer = "adam"
+    proportional_filter = 0.5
+    weight_decay = 0.0#1
+    optimizer = "sgd"
     learning_rate = 1
 
 
@@ -62,8 +62,10 @@ class ESW:
 
         if optimizer == "adam":
             self.optimizer = Adam(self.parameters.shape[0], learning_rate)
-        elif optimizer == "sgd":
+        elif optimizer == "momentum":
             self.optimizer = SGDMomentum(self.parameters.shape[0], learning_rate)
+        elif optimizer == "sgd":
+            self.optimizer = BasicSGD(self.parameters.shape[0], learning_rate)
         else:
             raise ValueError("Unknown optimizer '{}'".format(self.optimizer))
 
@@ -76,7 +78,7 @@ class ESW:
     def step(self, i, _run):
         # duplicate the parameters
         duplicated_parameters = np.tile(self.parameters, [self.num_evals, 1])
-        epsilon = np.random.normal(0, self.sigma, size=duplicated_parameters.shape)
+        epsilon = np.random.normal(loc=0, scale=self.sigma, size=duplicated_parameters.shape)
         randomized_parameters = duplicated_parameters + epsilon
 
         assert randomized_parameters.shape == (self.num_evals, self.parameters.shape[0])
@@ -115,13 +117,17 @@ class ESW:
             l2_penalty = self.weight_decay * np.mean(
                 randomized_parameters * randomized_parameters, axis=1
             )
+            _run.log_scalar("avg_l2_penalty", np.mean(l2_penalty), i)
             rewards -= l2_penalty
 
-        normalized_rewards = (rewards - np.mean(rewards)) / np.std(rewards)
-        update = epsilon.T @ normalized_rewards
-        gradient_estimate = 1.0 / (self.num_evals * self.sigma) * update
+        #normalized_rewards = (rewards - np.mean(rewards)) / np.std(rewards)
+        update = epsilon.T @ rewards
+        #gradient_estimate = (1.0 / (self.num_evals * self.sigma)) * update
+        gradient_estimate = (1.0 / (self.num_evals)) * update
 
-        self.parameters = self.optimizer.update(self.parameters, -gradient_estimate)
+        # todo test -g + theta
+        # https://github.com/openai/evolution-strategies-starter/blob/master/es_distributed/es.py#L249
+        self.parameters = self.parameters + update  #self.optimizer.update(self.parameters, -gradient_estimate)
 
         assert self.parameters.shape == self.param_shape
         self.main_agent.set_flat_parameters(self.parameters)
