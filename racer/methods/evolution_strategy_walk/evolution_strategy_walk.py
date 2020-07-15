@@ -18,9 +18,8 @@ setup_sacred_experiment(ex)
 
 @ex.config
 def esw_config():
-    learning_rate = 0.01
     sigma = 0.1
-    num_evals = 500
+    num_evals = 256
     parallel = True
     iterations = 200
     weights_file = None  # "best620"
@@ -32,6 +31,7 @@ def esw_config():
     proportional_filter = 0.9
     weight_decay = 0.01
     optimizer = "adam"
+    learning_rate = 1
 
 
 class ESW:
@@ -86,7 +86,7 @@ class ESW:
 
         # evaluate agents
         if self.parallel:
-            rewards = NNAgent.parallel_evaluate(self.env, self.agents)
+            rewards = NNAgent.parallel_evaluate(self.agents)
         else:
             rewards = [agent.evaluate(self.env) for agent in self.agents]
 
