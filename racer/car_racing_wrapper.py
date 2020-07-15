@@ -627,6 +627,7 @@ class CarRacingWrapper(CarRacing):
                     )
             self.create_tiles()
             self.track_imgs = self.render_whole_track()
+            self.road_vertex_list = None
         else:
             self.create_tiles()
 
