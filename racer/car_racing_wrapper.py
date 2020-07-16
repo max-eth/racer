@@ -596,6 +596,7 @@ class CarRacingWrapper(CarRacing):
     def get_state(self, car):
         state = self.crop_current(car)
         vectors = []  # DO NOT CHANGE THE ORDER OF THE INPUTS. car_racing_env.feature_names relies on it
+
         if self.enable_linear_speed:
             linear_speed = np.sqrt(
                 np.square(car.hull.linearVelocity[0])
@@ -649,6 +650,7 @@ class CarRacingWrapper(CarRacing):
                     )
             self.create_tiles()
             self.track_imgs = self.render_whole_track()
+            self.road_vertex_list = None
         else:
             self.create_tiles()
 

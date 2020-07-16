@@ -149,6 +149,7 @@ class ProgramTree(ABC):
         if (
             tree_2.height() == 0
             or tree_1.height() - node_1.height() == max_height
+            or tree_2.height() + node_1.height() == min_height
             or (
                 tree_1.height() - node_1.height() >= min_height
                 and tree_2.height() + node_1.height() <= max_height
