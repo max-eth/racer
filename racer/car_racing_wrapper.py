@@ -9,6 +9,7 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 """
+from itertools import repeat
 
 import matplotlib.pyplot as plt
 import skimage.transform
@@ -31,6 +32,8 @@ class CarRacingWrapper(CarRacing):
         enable_abs,
         enable_steering,
         headless,
+        num_cars=1,
+        focus_car=0,
         prerendered_data=None,
         render_view=False,
         export_frames=False,
@@ -56,8 +59,13 @@ class CarRacingWrapper(CarRacing):
         self.export_frames = export_frames
         self.frame = 0
         self.render_view = render_view
+        assert num_cars > 0
+        assert 0 <= focus_car < num_cars
+        self.focus_car = focus_car
+        self.num_cars = num_cars
 
         if render_view:
+            assert num_cars == 1
             from pyformulas import screen
 
             self.canvas = np.zeros((32, 32))
@@ -67,7 +75,8 @@ class CarRacingWrapper(CarRacing):
             self.track = prerendered_data["track"]
             self.track_imgs = prerendered_data["track_imgs"]
             self.road_vertex_list = None
-            self.car = Car(self.world, *self.track[0][1:4])
+            self.cars = tuple(Car(self.world, *self.track[0][1:4])
+                              for _ in range(self.num_cars))
             self.reset(regen_track=False)
         else:
             self.road_vertex_list = None
@@ -317,16 +326,15 @@ class CarRacingWrapper(CarRacing):
         img[:, y, 0] = 255
         self.imshow(img)
 
-    def crop_current(self):
-
-        rot_mat = R.from_euler("z", +self.car.hull.angle, degrees=False)
+    def crop_current(self, car):
+        rot_mat = R.from_euler("z", + car.hull.angle, degrees=False)
         rot_car_x, rot_car_y, _ = rot_mat.apply(
-            [self.car.hull.position[1], self.car.hull.position[0], 0]
+            [car.hull.position[1], car.hull.position[0], 0]
         )
         car_x = 500 - int(rot_car_x)
         car_y = 500 + int(rot_car_y)
 
-        img = self.track_imgs[int(math.degrees(-self.car.hull.angle)) % 360]
+        img = self.track_imgs[int(math.degrees(-car.hull.angle)) % 360]
 
         crop = img[
             car_x - 24 : car_x + 8, car_y - 16 : car_y + 16, :,
@@ -383,45 +391,57 @@ class CarRacingWrapper(CarRacing):
 
         return imgs
 
-    def step(self, action):
-        self.last_action = action
-        if action is not None:
-            self.car.steer(-action[0])
-            self.car.gas(action[1])
-            self.car.brake(action[2])
+    def step(self, *actions):
+        assert len(actions) == len(self.cars)
+        self.last_action = actions[self.focus_car]
 
-        self.car.step(1.0 / FPS)
+        for car, action in zip(self.cars, actions):
+            if action is not None:
+                car.steer(-action[0])
+                car.gas(action[1])
+                car.brake(action[2])
+
+            car.step(1.0 / FPS)
+
+        self.states = [self.get_state(car) for car in self.cars]
+
         self.world.Step(1.0 / FPS, 6 * 30, 2 * 30)
         self.t += 1.0 / FPS
 
-        self.state = self.crop_current()
-
         step_reward = 0
         done = False
-        if action is not None:  # First step without action, called from reset()
+
+        # calculate reward
+        focus_car = self.cars[self.focus_car]
+
+        if self.reward > 600 and focus_car.hull.angularVelocity > 0.6 and self.spin_reward < 100:
+            self.reward += 10
+            self.spin_reward += 10
+        if actions[self.focus_car] is not None:  # First step without action, called from reset()
             tiles_of_wheels = {
-                tile for wheel in self.car.wheels for tile in wheel.tiles
+                tile for wheel in focus_car.wheels for tile in wheel.tiles
             }
+
             if all(t.road_friction != 1.0 for t in tiles_of_wheels):
+                # penalty if the car goes off the road
                 self.reward -= 10
             else:
                 self.reward -= 0.1
-            # We actually don't want to count fuel spent, we want car to be faster.
-            # self.reward -=  10 * self.car.fuel_spent / ENGINE_POWER
-            self.car.fuel_spent = 0.0
+
             step_reward = self.reward - self.prev_reward
             self.prev_reward = self.reward
             if self.tile_visited_count == len(self.track):
                 done = True
-            x, y = self.car.hull.position
+            x, y = focus_car.hull.position
             if abs(x) > PLAYFIELD or abs(y) > PLAYFIELD:
                 done = True
                 step_reward = -100
         self.max_reward = max(self.reward, self.max_reward)
 
-        return self.state, step_reward, done, {}
+        return self.states, step_reward, done, {}
 
     def render_indicators(self, W, H):
+        focus_car = self.cars[self.focus_car]
         gl.glBegin(gl.GL_QUADS)
         s = W / 40.0
         h = H / 40.0
@@ -446,8 +466,8 @@ class CarRacingWrapper(CarRacing):
             gl.glVertex3f((place + 0) * s, 2 * h, 0)
 
         true_speed = np.sqrt(
-            np.square(self.car.hull.linearVelocity[0])
-            + np.square(self.car.hull.linearVelocity[1])
+            np.square(focus_car.hull.linearVelocity[0])
+            + np.square(focus_car.hull.linearVelocity[1])
         )
         vertical_ind(5, 0.02 * true_speed, (1, 1, 1))
 
@@ -455,8 +475,8 @@ class CarRacingWrapper(CarRacing):
             vertical_ind(8, 2.5 * self.last_action[1], (0, 1, 0))  # gas
             vertical_ind(9, 2.5 * self.last_action[2], (1, 0, 0))  # brake
 
-        horiz_ind(20, -10.0 * self.car.wheels[0].joint.angle, (0, 1, 0))
-        horiz_ind(30, -0.8 * self.car.hull.angularVelocity, (1, 0, 0))
+        horiz_ind(20, -10.0 * focus_car.wheels[0].joint.angle, (0, 1, 0))
+        horiz_ind(30, -0.8 * focus_car.hull.angularVelocity, (1, 0, 0))
         gl.glEnd()
         self.score_label.text = "R: %04i" % self.reward
         self.score_label.draw()
@@ -514,10 +534,11 @@ class CarRacingWrapper(CarRacing):
 
         # zoom = 0.1 * SCALE * max(1 - self.t, 0) + ZOOM * SCALE * min(self.t, 1)  # Animate zoom first second
         zoom = ZOOM * SCALE
-        scroll_x = self.car.hull.position[0]
-        scroll_y = self.car.hull.position[1]
-        angle = -self.car.hull.angle
-        vel = self.car.hull.linearVelocity
+        focus_car = self.cars[self.focus_car]
+        scroll_x = focus_car.hull.position[0]
+        scroll_y = focus_car.hull.position[1]
+        angle = -focus_car.hull.angle
+        vel = focus_car.hull.linearVelocity
         if np.linalg.norm(vel) > 0.5:
             angle = math.atan2(vel[0], vel[1])
         self.transform.set_scale(zoom, zoom)
@@ -529,7 +550,8 @@ class CarRacingWrapper(CarRacing):
         )
         self.transform.set_rotation(angle)
 
-        self.car.draw(self.viewer, mode != "state_pixels")
+        for car in self.cars:
+            car.draw(self.viewer, mode != "state_pixels")
 
         arr = None
         win = self.viewer.window
@@ -568,55 +590,54 @@ class CarRacingWrapper(CarRacing):
             )
             self.frame += 1
 
-        if mode == "human":
-            win.flip()
-            return self.viewer.isopen
+        win.flip()
+        return self.viewer.isopen
 
-        image_data = (
-            pyglet.image.get_buffer_manager().get_color_buffer().get_image_data()
-        )
+    def get_state(self, car):
+        state = self.crop_current(car)
+        vectors = []  # DO NOT CHANGE THE ORDER OF THE INPUTS. car_racing_env.feature_names relies on it
 
-        arr = np.fromstring(image_data.get_data(), dtype=np.uint8, sep="")
-        arr = arr.reshape(VP_H, VP_W, 4)
-        arr = arr[::-1, :, 0:3]
-
-        return arr
-
-    def get_state(self):
-        vectors = (
-            []
-        )  # DO NOT CHANGE THE ORDER OF THE INPUTS. car_racing_env.feature_names relies on it
         if self.enable_linear_speed:
             linear_speed = np.sqrt(
-                np.square(self.car.hull.linearVelocity[0])
-                + np.square(self.car.hull.linearVelocity[1])
+                np.square(car.hull.linearVelocity[0])
+                + np.square(car.hull.linearVelocity[1])
             )
             vectors.append(np.array([linear_speed]))
 
         if self.enable_angular_speed:
-            vectors.append(np.array([self.car.hull.angularVelocity]))
+            vectors.append(np.array([car.hull.angularVelocity]))
 
         if self.enable_abs:
-            vectors.append(np.array([self.car.wheels[i].omega for i in range(4)]))
+            vectors.append(np.array([car.wheels[i].omega for i in range(4)]))
 
         if self.enable_steering:
-            vectors.append(np.array([self.car.wheels[0].joint.angle]))
+            vectors.append(np.array([car.wheels[0].joint.angle]))
 
-        image = self.state[:, :, 0] / 255
+        image = state[:, :, 0] / 255
         image = image.astype(np.float32)
         return (
             image.reshape(1, 1, image.shape[0], image.shape[0]),
             np.concatenate(vectors, axis=0).astype(np.float32),
         )
 
-    def reset(self, regen_track):
+
+    def reset(self, regen_track, num_cars=None):
+        """
+        Reset the environment. If num_cars is provided, you can change the amount of cars in the environment.
+        :param regen_track: whether to generate a new track
+        :param num_cars: if not None, the amount of cars will be changed to this value
+        :return: the result of the first step (with action None)
+        """
         self._destroy()
         self.max_reward = -100000000000000
         self.reward = 0.0
         self.prev_reward = 0.0
         self.frame = 0
         self.tile_visited_count = 0
+        self.spin_reward = 0
         self.t = 0.0
+        if num_cars is not None:
+            self.num_cars = num_cars
 
         if regen_track:
             while True:
@@ -633,11 +654,26 @@ class CarRacingWrapper(CarRacing):
         else:
             self.create_tiles()
 
-        if self.car is not None:
-            self.car.destroy()
-        self.car = Car(self.world, *self.track[0][1:4])
+        if self.cars is not None:
+            for car in self.cars:
+                car.destroy()
 
-        return self.step(None)[0]
+        self.cars = [Car(self.world, *self.track[0][1:4]) for _ in range(self.num_cars)]
+
+        # just a list of random colors
+        colors = [
+            (0.8, 0.0, 0.0),
+            (0.0, 0.8, 0.0),
+            (0.0, 0.0, 0.8),
+            (0.8, 0.8, 0.0),
+            (0.0, 0.8, 0.8),
+            (0.8, 0.0, 0.8),
+        ]
+        for color, car in zip(colors, self.cars):
+            car.hull.color = color
+        # any more cars will just keep the default color, which is red
+
+        return self.step(*[None for _ in range(self.num_cars)])[0]
 
     def _destroy(self):
         if not self.road:
