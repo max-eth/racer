@@ -28,4 +28,4 @@ def run(weights, track):
     shapes = [s.shape for s in agent.parameters()]
     agent.set_parameters(build_parameters(shapes, model_weights))
     env = init_env(track_data=load_pickle(track))
-    print(agent.evaluate(env, True, True))
+    print(agent.evaluate(env, True, False))

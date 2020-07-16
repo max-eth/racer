@@ -583,7 +583,9 @@ class CarRacingWrapper(CarRacing):
         return arr
 
     def get_state(self):
-        vectors = []  # DO NOT CHANGE THE ORDER OF THE INPUTS. car_racing_env.feature_names relies on it
+        vectors = (
+            []
+        )  # DO NOT CHANGE THE ORDER OF THE INPUTS. car_racing_env.feature_names relies on it
         if self.enable_linear_speed:
             linear_speed = np.sqrt(
                 np.square(self.car.hull.linearVelocity[0])
