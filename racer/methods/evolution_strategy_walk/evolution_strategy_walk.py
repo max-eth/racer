@@ -32,7 +32,7 @@ def esw_config():
 
     # zero means we take all, 0.2 means we drop the lowest 20%
     proportional_filter = 0.5
-    weight_decay = 0.0#1
+    weight_decay = 0.0  # 1
     optimizer = "sgd"
     learning_rate = 1
     save_distribution = True
@@ -55,7 +55,7 @@ class ESW:
         learning_rate,
         save_distribution,
     ):
-        self.fitness = float('-inf')
+        self.fitness = float("-inf")
         self.top_k = top_k
         self.env = env
         self.learning_rate = learning_rate
@@ -87,7 +87,9 @@ class ESW:
     def step(self, iter, _run):
         # duplicate the parameters
         duplicated_parameters = np.tile(self.parameters, [self.num_evals, 1])
-        epsilon = np.random.normal(loc=0, scale=self.sigma, size=duplicated_parameters.shape)
+        epsilon = np.random.normal(
+            loc=0, scale=self.sigma, size=duplicated_parameters.shape
+        )
         randomized_parameters = duplicated_parameters + epsilon
 
         assert randomized_parameters.shape == (self.num_evals, self.parameters.shape[0])
@@ -130,7 +132,7 @@ class ESW:
             rewards = (rewards.argsort() / (rewards.size - 1)) - 0.5
             assert rewards.sum() < 0.001
         elif self.weighting == "top_k":
-            top_k_rewards_idx = rewards.argsort()[-self.top_k:]
+            top_k_rewards_idx = rewards.argsort()[-self.top_k :]
             rewards = np.zeros_like(rewards)
             rewards[top_k_rewards_idx] = 1
             rewards = rewards / np.sum(rewards)
@@ -144,9 +146,9 @@ class ESW:
             _run.log_scalar("avg_l2_penalty", np.mean(l2_penalty), iter)
             rewards -= l2_penalty
 
-        #normalized_rewards = (rewards - np.mean(rewards)) / np.std(rewards)
+        # normalized_rewards = (rewards - np.mean(rewards)) / np.std(rewards)
         update = epsilon.T @ rewards
-        #gradient_estimate = (1.0 / (self.num_evals * self.sigma)) * update
+        # gradient_estimate = (1.0 / (self.num_evals * self.sigma)) * update
         gradient_estimate = (1.0 / (self.num_evals)) * update
 
         # todo test -g + theta
@@ -157,14 +159,20 @@ class ESW:
             score = self.main_agent.evaluate(get_env())
             if score < self.fitness:
                 choice = random.choice(range(len(top_k_rewards_idx)))
-                print("Couldn't improve, falling back to greedy, chose {}st with reward {}".format(choice, orig_rewards[top_k_rewards_idx[choice]]))
+                print(
+                    "Couldn't improve, falling back to greedy, chose {}st with reward {}".format(
+                        choice, orig_rewards[top_k_rewards_idx[choice]]
+                    )
+                )
                 choice = top_k_rewards_idx[choice]
                 self.parameters = epsilon[random.choice(top_k_rewards_idx), :]
             else:
                 self.parameters = candidate
 
         else:
-            self.parameters = self.parameters + update  #self.optimizer.update(self.parameters, -gradient_estimate)
+            self.parameters = (
+                self.parameters + update
+            )  # self.optimizer.update(self.parameters, -gradient_estimate)
 
         assert self.parameters.shape == self.param_shape
         self.main_agent.set_flat_parameters(self.parameters)
@@ -201,7 +209,6 @@ class ESW:
                     old = NNAgent()
                     old.set_flat_parameters(last_best_parameters)
                     NNAgent.race(self.env, [eval, old], 0)
-
 
                 last_best_fitness = self.fitness
                 last_best_parameters = self.parameters

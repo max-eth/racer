@@ -75,7 +75,9 @@ class GeneticOptimizer(Method):
 
         image_feature_names = ["PIXEL_{}".format(coords) for coords in image_features()]
         metric_feature_names = feature_names()
-        all_feature_names = image_feature_names + metric_feature_names  # order dependent on gentic_agent.act
+        all_feature_names = (
+            image_feature_names + metric_feature_names
+        )  # order dependent on gentic_agent.act
 
         self.env = get_env()
 
