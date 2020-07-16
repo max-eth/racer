@@ -30,6 +30,9 @@ from Box2D.b2 import (
     shape,
 )
 
+COLL_TILE_CATEGORY = 0x0001
+COLL_WHEEL_CATEGORY = 0x0002
+COLL_CAR_CATEGORY = 0x0004
 SIZE = 0.02
 ENGINE_POWER = 100000000 * SIZE * SIZE
 WHEEL_MOMENT_OF_INERTIA = 4000 * SIZE * SIZE
@@ -68,24 +71,32 @@ class Car:
                     shape=polygonShape(
                         vertices=[(x * SIZE, y * SIZE) for x, y in HULL_POLY1]
                     ),
+                    categoryBits=COLL_CAR_CATEGORY,
+                    maskBits=0,
                     density=1.0,
                 ),
                 fixtureDef(
                     shape=polygonShape(
                         vertices=[(x * SIZE, y * SIZE) for x, y in HULL_POLY2]
                     ),
+                    categoryBits=COLL_CAR_CATEGORY,
+                    maskBits=0,
                     density=1.0,
                 ),
                 fixtureDef(
                     shape=polygonShape(
                         vertices=[(x * SIZE, y * SIZE) for x, y in HULL_POLY3]
                     ),
+                    categoryBits=COLL_CAR_CATEGORY,
+                    maskBits=0,
                     density=1.0,
                 ),
                 fixtureDef(
                     shape=polygonShape(
                         vertices=[(x * SIZE, y * SIZE) for x, y in HULL_POLY4]
                     ),
+                    categoryBits=COLL_CAR_CATEGORY,
+                    maskBits=0,
                     density=1.0,
                 ),
             ],
@@ -112,8 +123,8 @@ class Car:
                         ]
                     ),
                     density=0.1,
-                    categoryBits=0x0020,
-                    maskBits=0x001,
+                    categoryBits=COLL_WHEEL_CATEGORY,
+                    maskBits=COLL_TILE_CATEGORY,
                     restitution=0.0,
                 ),
             )

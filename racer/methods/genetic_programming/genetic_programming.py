@@ -25,6 +25,8 @@ setup_sacred_experiment(ex)
 @ex.config
 def experiment_config():
 
+    parallel = True
+
     track_file = "track_data.p"
     regen_track = False  # regen track every generation
 
@@ -141,7 +143,7 @@ class GeneticOptimizer(Method):
         )
 
     @ex.capture
-    def compute_fitnesses(self, regen_track):
+    def compute_fitnesses(self, regen_track, parallel):
         if regen_track:
             individuals_to_evaluate = self.population
         else:
@@ -151,7 +153,11 @@ class GeneticOptimizer(Method):
         agents_to_evaluate = [
             GeneticAgent(policy_function=ind) for ind in individuals_to_evaluate
         ]
-        new_fitnesses = GeneticAgent.parallel_evaluate(agents_to_evaluate)
+        if parallel:
+            new_fitnesses = GeneticAgent.parallel_evaluate(agents_to_evaluate)
+        else:
+            new_fitnesses = [agent.evaluate(get_env()) for agent in agents_to_evaluate]
+
         for ind, fitness in zip(individuals_to_evaluate, new_fitnesses):
             ind.fitness = fitness
 
@@ -186,10 +192,7 @@ class GeneticOptimizer(Method):
                     old_agent = GeneticAgent(policy_function=self.best_individual)
                     new_agent = GeneticAgent(policy_function=new_best)
                     GeneticAgent.race(get_env(), [old_agent, new_agent], 1)
-                get_env().reset(regen_track=False)
-                GeneticAgent(policy_function=self.best_individual).evaluate(
-                    env=get_env(), visible=True
-                )
+            self.best_individual = new_best
 
     @ex.capture
     def step(
