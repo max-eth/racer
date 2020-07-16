@@ -144,20 +144,24 @@ class GeneticOptimizer(Method):
             self.best_individual is None
             or contender.fitness > self.best_individual.fitness
         ):
-            self.best_individual = contender
+            new_best = contender
 
             if self.run_dir_path is not None:
                 fname = os.path.join(
                     self.run_dir_path, "best_{}.pkl".format(self.generation)
                 )
-                write_pickle(self.best_individual, fname=fname)
+                write_pickle(new_best, fname=fname)
                 _run.add_artifact(fname, name="best_{}".format(self.generation))
 
             if show_best:
-                self.env.reset(regen_track=regen_track)
-                GeneticAgent(policy_function=self.best_individual).evaluate(
-                    env=self.env, visible=True
-                )
+                if self.best_individual is None:
+                    GeneticAgent(policy_function=new_best).evaluate(
+                        env=self.env, visible=True
+                    )
+                else:
+                    old_agent = GeneticAgent(policy_function=self.best_individual)
+                    new_agent = GeneticAgent(policy_function=new_best)
+                    GeneticAgent.race(self.env, [old_agent, new_agent], 1)
 
     @ex.capture
     def step(

@@ -68,7 +68,7 @@ class SimpleNN(nn.Module):
             layers.append(nn.ReLU())
             for i in range(hidden_layers - 1):
                 layers.append(nn.Linear(hidden_size, hidden_size))
-                layers.append(nn.ReLU())
+                layers.append(nn.Tanh())
         layers.append(nn.Linear(hidden_size if hidden_layers != 0 else in_size, 2))
 
         self.sq = nn.Sequential(*layers)
