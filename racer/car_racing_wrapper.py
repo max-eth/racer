@@ -501,12 +501,12 @@ class CarRacingWrapper(gym.envs.box2d.car_racing.CarRacing):
         focus_car = self.cars[self.focus_car]
 
         if (
-            self.reward > 600
+            600 < self.reward < 800
             and focus_car.hull.angularVelocity > 5
             and self.spin_reward < 100
         ):
-            self.reward += 10
-            self.spin_reward += 10
+            self.reward += 50
+            self.spin_reward += 50
         if (
             actions[self.focus_car] is not None
         ):  # First step without action, called from reset()
@@ -765,8 +765,8 @@ class CarRacingWrapper(gym.envs.box2d.car_racing.CarRacing):
         # just a list of random colors
         colors = [
             (0.8, 0.0, 0.0),
-            (0.0, 0.8, 0.0),
             (0.0, 0.0, 0.8),
+            (0.0, 0.8, 0.0),
             (0.8, 0.8, 0.0),
             (0.0, 0.8, 0.8),
             (0.8, 0.0, 0.8),

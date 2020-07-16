@@ -35,6 +35,7 @@ class Agent(ABC):
         """
         old_num_cars = env.num_cars
         env.reset(regen_track=False, num_cars=len(agents))
+        env.focus_car = focus_agent
 
         done = False
         neg_reward_count = 0
@@ -51,6 +52,7 @@ class Agent(ABC):
                 # stop early
                 break
             env.render(mode="human")
+        env.focus_car = 0
         env.reset(regen_track=False, num_cars=old_num_cars)
 
     @abstractmethod
