@@ -11,7 +11,7 @@ class Scheduler:
         param_schedule = self.schedule[param_name]
         assert len(param_schedule) == len(self.milestones)
         i = 0
-        while self.step_count >= self.milestones[i] and i < len(param_schedule):
+        while i < len(param_schedule) and self.step_count >= self.milestones[i]:
             val = param_schedule[i]
             i += 1
         return val
