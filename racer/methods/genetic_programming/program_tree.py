@@ -68,7 +68,13 @@ class ProgramTree(ABC):
 
     @staticmethod
     def mutate(
-        tree, ops, gen_val, feature_names, min_height, max_height, random_gen_probabilities
+        tree,
+        ops,
+        gen_val,
+        feature_names,
+        min_height,
+        max_height,
+        random_gen_probabilities,
     ):
         assert tree.height() <= max_height
 
@@ -78,7 +84,12 @@ class ProgramTree(ABC):
         if id_node_swapped == 0:
             # mutating the entire tree
             return ProgramTree.random_tree(
-                ops, gen_val, feature_names, min_height, max_height, random_gen_probabilities
+                ops,
+                gen_val,
+                feature_names,
+                min_height,
+                max_height,
+                random_gen_probabilities,
             )
         else:
             tree_mutate = copy.deepcopy(tree)

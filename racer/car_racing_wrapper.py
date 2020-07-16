@@ -75,8 +75,9 @@ class CarRacingWrapper(CarRacing):
             self.track = prerendered_data["track"]
             self.track_imgs = prerendered_data["track_imgs"]
             self.road_vertex_list = None
-            self.cars = tuple(Car(self.world, *self.track[0][1:4])
-                              for _ in range(self.num_cars))
+            self.cars = tuple(
+                Car(self.world, *self.track[0][1:4]) for _ in range(self.num_cars)
+            )
             self.reset(regen_track=False)
         else:
             self.road_vertex_list = None
@@ -327,7 +328,7 @@ class CarRacingWrapper(CarRacing):
         self.imshow(img)
 
     def crop_current(self, car):
-        rot_mat = R.from_euler("z", + car.hull.angle, degrees=False)
+        rot_mat = R.from_euler("z", +car.hull.angle, degrees=False)
         rot_car_x, rot_car_y, _ = rot_mat.apply(
             [car.hull.position[1], car.hull.position[0], 0]
         )
@@ -414,10 +415,16 @@ class CarRacingWrapper(CarRacing):
         # calculate reward
         focus_car = self.cars[self.focus_car]
 
-        if self.reward > 600 and focus_car.hull.angularVelocity > 0.6 and self.spin_reward < 100:
+        if (
+            self.reward > 600
+            and focus_car.hull.angularVelocity > 0.6
+            and self.spin_reward < 100
+        ):
             self.reward += 10
             self.spin_reward += 10
-        if actions[self.focus_car] is not None:  # First step without action, called from reset()
+        if (
+            actions[self.focus_car] is not None
+        ):  # First step without action, called from reset()
             tiles_of_wheels = {
                 tile for wheel in focus_car.wheels for tile in wheel.tiles
             }
@@ -595,7 +602,9 @@ class CarRacingWrapper(CarRacing):
 
     def get_state(self, car):
         state = self.crop_current(car)
-        vectors = []  # DO NOT CHANGE THE ORDER OF THE INPUTS. car_racing_env.feature_names relies on it
+        vectors = (
+            []
+        )  # DO NOT CHANGE THE ORDER OF THE INPUTS. car_racing_env.feature_names relies on it
 
         if self.enable_linear_speed:
             linear_speed = np.sqrt(
@@ -619,7 +628,6 @@ class CarRacingWrapper(CarRacing):
             image.reshape(1, 1, image.shape[0], image.shape[0]),
             np.concatenate(vectors, axis=0).astype(np.float32),
         )
-
 
     def reset(self, regen_track, num_cars=None):
         """

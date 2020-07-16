@@ -11,7 +11,10 @@ class ParameterizedTree(ProgramTree):
             underlying_tree = copy.deepcopy(underlying_tree)  # safety first
 
         if hasattr(underlying_tree, "children"):
-            underlying_tree.children = [ParameterizedTree(underlying_tree=child, _copy=False) for child in underlying_tree.children]
+            underlying_tree.children = [
+                ParameterizedTree(underlying_tree=child, _copy=False)
+                for child in underlying_tree.children
+            ]
 
         self.underlying_tree = underlying_tree
 
@@ -22,7 +25,9 @@ class ParameterizedTree(ProgramTree):
 
     def set_params(self, params):
         self.weight, self.bias = params
-        self.name = self.underlying_tree.name + " * {} + {}".format(self.weight, self.bias)
+        self.name = self.underlying_tree.name + " * {} + {}".format(
+            self.weight, self.bias
+        )
 
     def get_params(self):
         return [self.weight, self.bias]
@@ -57,7 +62,9 @@ class ParameterizedIndividual:
 
     @staticmethod
     def from_individual(ind):
-        return ParameterizedIndividual(parameterized_trees=[ParameterizedTree(tree) for tree in ind.trees])
+        return ParameterizedIndividual(
+            parameterized_trees=[ParameterizedTree(tree) for tree in ind.trees]
+        )
 
     @staticmethod
     def from_pickled_individual(fname):
@@ -73,7 +80,7 @@ class ParameterizedIndividual:
         n_used = 0
         for tree in self.parameterized_trees:
             for node in tree.in_order():
-                node.set_params(list(params[n_used:n_used+2]))
+                node.set_params(list(params[n_used : n_used + 2]))
                 n_used += 2
 
     def get_flat_parameters(self):
@@ -82,4 +89,3 @@ class ParameterizedIndividual:
             for node in tree.in_order():
                 params += node.get_params()
         return np.array(params)
-
