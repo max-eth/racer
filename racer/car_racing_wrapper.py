@@ -501,13 +501,6 @@ class CarRacingWrapper(gym.envs.box2d.car_racing.CarRacing):
         focus_car = self.cars[self.focus_car]
 
         if (
-            600 < self.reward < 800
-            and focus_car.hull.angularVelocity > 5
-            and self.spin_reward < 100
-        ):
-            self.reward += 50
-            self.spin_reward += 50
-        if (
             actions[self.focus_car] is not None
         ):  # First step without action, called from reset()
             tiles_of_wheels = {

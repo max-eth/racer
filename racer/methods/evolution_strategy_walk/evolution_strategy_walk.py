@@ -132,7 +132,7 @@ class ESW:
             rewards = (rewards.argsort() / (rewards.size - 1)) - 0.5
             assert rewards.sum() < 0.001
         elif self.weighting == "top_k":
-            top_k_rewards_idx = rewards.argsort()[-self.top_k :]
+            top_k_rewards_idx = rewards.argsort()[-self.top_k:]
             rewards = np.zeros_like(rewards)
             rewards[top_k_rewards_idx] = 1
             rewards = rewards / np.sum(rewards)
