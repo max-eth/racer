@@ -22,7 +22,7 @@ class Agent(ABC):
             :return: a list of floats corresponding to the evaluation results of the agents
         """
         if Agent.pool is None:
-            Agent.pool = Pool(processes=None)
+            Agent.pool = Pool(processes=4)
         result = Agent.pool.map(eval, agents)
         return result
 
