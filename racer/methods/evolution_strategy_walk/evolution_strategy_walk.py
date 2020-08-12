@@ -21,7 +21,7 @@ setup_sacred_experiment(ex)
 @ex.config
 def esw_config():
     sigma = 0.1
-    num_evals = 500
+    num_evals = 256
     parallel = True
     iterations = 200
     weights_file = None  # "best620"
@@ -33,8 +33,8 @@ def esw_config():
     # zero means we take all, 0.2 means we drop the lowest 20%
     proportional_filter = 0.5
     weight_decay = 0.0  # 1
-    optimizer = "sgd"
-    learning_rate = 1
+    optimizer = None
+    learning_rate = 0.01
     save_distribution = True
 
 
@@ -69,7 +69,9 @@ class ESW:
             self.main_agent.set_flat_parameters(np.load(weights_file))
         self.parameters = self.main_agent.get_flat_parameters()
 
-        if optimizer == "adam":
+        if optimizer is None:
+            self.optimizer = None
+        elif optimizer == "adam":
             self.optimizer = Adam(self.parameters.shape[0], learning_rate)
         elif optimizer == "momentum":
             self.optimizer = SGDMomentum(self.parameters.shape[0], learning_rate)
@@ -148,8 +150,6 @@ class ESW:
 
         # normalized_rewards = (rewards - np.mean(rewards)) / np.std(rewards)
         update = epsilon.T @ rewards
-        # gradient_estimate = (1.0 / (self.num_evals * self.sigma)) * update
-        gradient_estimate = (1.0 / (self.num_evals)) * update
 
         # todo test -g + theta
         # https://github.com/openai/evolution-strategies-starter/blob/master/es_distributed/es.py#L249
@@ -170,9 +170,13 @@ class ESW:
                 self.parameters = candidate
 
         else:
-            self.parameters = (
-                self.parameters + update
-            )  # self.optimizer.update(self.parameters, -gradient_estimate)
+            if self.optimizer is None:
+                self.parameters = (
+                        self.parameters + update
+                )
+            else:
+                gradient_estimate = (1.0 / (self.num_evals * self.sigma)) * update
+                self.optimizer.update(self.parameters, -gradient_estimate)
 
         assert self.parameters.shape == self.param_shape
         self.main_agent.set_flat_parameters(self.parameters)
