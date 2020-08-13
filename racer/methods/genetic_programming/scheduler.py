@@ -15,4 +15,3 @@ class Scheduler:
             val = param_schedule[i]
             i += 1
         return val
-

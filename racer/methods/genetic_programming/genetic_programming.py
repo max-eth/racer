@@ -25,6 +25,8 @@ setup_sacred_experiment(ex)
 @ex.config
 def experiment_config():
 
+    parallel = True
+
     track_file = "track_data.p"
     regen_track = False  # regen track every generation
 
@@ -51,7 +53,13 @@ def experiment_config():
     p_crossover = [0.5, 0.4, 0.15]
     p_noise = [0.15, 0.3, 0.7]
 
-    scheduler = Scheduler(milestones=milestones, p_mutate=p_mutate, p_reproduce=p_reproduce, p_crossover=p_crossover, p_noise=p_noise)
+    scheduler = Scheduler(
+        milestones=milestones,
+        p_mutate=p_mutate,
+        p_reproduce=p_reproduce,
+        p_crossover=p_crossover,
+        p_noise=p_noise,
+    )
 
     gen_noise = lambda: random.gauss(mu=0, sigma=1)
 
@@ -81,7 +89,9 @@ class GeneticOptimizer(Method):
 
         image_feature_names = ["PIXEL_{}".format(coords) for coords in image_features()]
         metric_feature_names = feature_names()
-        all_feature_names = image_feature_names + metric_feature_names  # order dependent on gentic_agent.act
+        all_feature_names = (
+            image_feature_names + metric_feature_names
+        )  # order dependent on gentic_agent.act
 
         self.random_gen_params = {
             "ops": operators,
@@ -133,15 +143,21 @@ class GeneticOptimizer(Method):
         )
 
     @ex.capture
-    def compute_fitnesses(self, regen_track):
+    def compute_fitnesses(self, regen_track, parallel):
         if regen_track:
             individuals_to_evaluate = self.population
         else:
-            individuals_to_evaluate = [ind for ind in self.population if ind.fitness is None]
+            individuals_to_evaluate = [
+                ind for ind in self.population if ind.fitness is None
+            ]
         agents_to_evaluate = [
             GeneticAgent(policy_function=ind) for ind in individuals_to_evaluate
         ]
-        new_fitnesses = GeneticAgent.parallel_evaluate(agents_to_evaluate)
+        if parallel:
+            new_fitnesses = GeneticAgent.parallel_evaluate(agents_to_evaluate)
+        else:
+            new_fitnesses = [agent.evaluate(get_env()) for agent in agents_to_evaluate]
+
         for ind, fitness in zip(individuals_to_evaluate, new_fitnesses):
             ind.fitness = fitness
 
@@ -152,28 +168,31 @@ class GeneticOptimizer(Method):
             # reset env
             get_env().reset(regen_track=True)
 
-
-
     @ex.capture
     def update_best(self, contender, show_best, _run):
         if (
             self.best_individual is None
             or contender.fitness > self.best_individual.fitness
         ):
-            self.best_individual = contender
+            new_best = contender
 
             if self.run_dir_path is not None:
                 fname = os.path.join(
                     self.run_dir_path, "best_{}.pkl".format(self.generation)
                 )
-                write_pickle(self.best_individual, fname=fname)
+                write_pickle(new_best, fname=fname)
                 _run.add_artifact(fname, name="best_{}".format(self.generation))
 
             if show_best:
-                get_env().reset(regen_track=False)
-                GeneticAgent(policy_function=self.best_individual).evaluate(
-                    env=get_env(), visible=True
-                )
+                if self.best_individual is None:
+                    GeneticAgent(policy_function=new_best).evaluate(
+                        env=get_env(), visible=True
+                    )
+                else:
+                    old_agent = GeneticAgent(policy_function=self.best_individual)
+                    new_agent = GeneticAgent(policy_function=new_best)
+                    GeneticAgent.race(get_env(), [old_agent, new_agent], 1)
+            self.best_individual = new_best
 
     @ex.capture
     def step(
@@ -192,7 +211,11 @@ class GeneticOptimizer(Method):
         children = set()
 
         # elitism
-        children = children.union(sorted(self.population, key=lambda ind: ind.fitness, reverse=True)[:n_elitism])
+        children = children.union(
+            sorted(self.population, key=lambda ind: ind.fitness, reverse=True)[
+                :n_elitism
+            ]
+        )
 
         selector = gen_selector(self.population, **selector_params)
 
@@ -227,7 +250,9 @@ class GeneticOptimizer(Method):
                 idx_parent = selector.get_single(exclude=True)
                 parent = self.population[idx_parent]
                 children.add(parent)
-            elif rand_num < scheduler.get("p_crossover") + scheduler.get("p_reproduce") + scheduler.get("p_noise"):
+            elif rand_num < scheduler.get("p_crossover") + scheduler.get(
+                "p_reproduce"
+            ) + scheduler.get("p_noise"):
                 # add noise to constants
                 idx_parent = selector.get_single(
                     exclude=False

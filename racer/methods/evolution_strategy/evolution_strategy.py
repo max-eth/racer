@@ -4,7 +4,7 @@ import os
 from tqdm import tqdm
 
 from racer.car_racing_env import car_racing_env, get_env, init_env
-from racer.utils import setup_sacred_experiment
+from racer.utils import setup_sacred_experiment, load_pickle
 from racer.models.simple_nn import SimpleNN, simple_nn, NNAgent
 from racer.methods.method import Method
 from racer.utils import flatten_parameters, build_parameters
@@ -18,12 +18,14 @@ setup_sacred_experiment(ex)
 
 @ex.config
 def cfg():
-    mutation_rate = 0.3
-    parent_selec_strat = "random"
+    mutation_rate = 0.3 #0.1 0.5
+    parent_selec_strat = "truncation"
     children_selec_strat = "n_plus_lambda"
-    population_size = 120
-    num_children = 50
-    generations = 500
+    population_size = 100
+    num_children = 20 #50
+    generations = 600
+    gauss_std = 0.5
+    parallel = False
 
 
 class EvolutionStrategy:
@@ -37,6 +39,8 @@ class EvolutionStrategy:
         children_selec_strat,
         population_size,
         num_children,
+        gauss_std,
+        parallel
     ):
         assert 0 < mutation_rate <= 1
         assert parent_selec_strat in ["random", "roulette", "tournament", "truncation"]
@@ -49,9 +53,11 @@ class EvolutionStrategy:
         self.N = population_size
         self.num_children = num_children
         self.model_generator = model_generator
+        self.parallel = parallel
         self.mutation_rate = mutation_rate
         self.parent_selec_strat = parent_selec_strat
         self.children_selec_strat = children_selec_strat
+        self.gauss_std = gauss_std
         self.env = env
         for _ in range(self.N):
             model = model_generator()
@@ -114,11 +120,16 @@ class EvolutionStrategy:
             parents = list()
         else:
             # assert(self.parent_selec_strat == "truncation")
-            parents = list()
+            parents = [i for i in range(self.N)]
+            parents = (
+                parents[-(self.num_children % self.N) :]
+                + int(self.num_children / self.N) * parents
+            )
+
         return parents
 
     def generate_children(self, parents):
-        children = []
+        children_models = []
         for parent_index in parents:
             child = self.model_generator()
             parent_params = flatten_parameters(
@@ -126,22 +137,26 @@ class EvolutionStrategy:
             )
             for i in range(len(parent_params)):
                 if random.random() < self.mutation_rate:
-                    gaussian_noise = np.random.normal(0, 1)
+                    gaussian_noise = np.random.normal(0, self.gauss_std)
+                    np.random.normal()
 
                     parent_params[i] += gaussian_noise
             child.set_parameters(build_parameters(self.parameter_shapes, parent_params))
-            self.env.reset(regen_track=False)
-            children.append((child, child.evaluate(self.env)))
-        return children
+            children_models.append(child)
+        if self.parallel:
+            children_fitness = NNAgent.parallel_evaluate(children_models)
+        else:
+            children_fitness = [agent.evaluate(self.env) for agent in children_models]
+        return zip(children_models, children_fitness)
 
 
 @ex.automain
 def run(generations):
-    env = init_env()  # track_data=load_pickle("track_data.p"))
+    env = init_env(track_data=load_pickle("track_data.p"))
     optimizer = EvolutionStrategy(env=env, model_generator=(lambda: NNAgent()))
 
     best_models = optimizer.run(generations)
     print(len(best_models))
     print("Best fitness: " + str(best_models[-1][1]))
     env.reset(regen_track=False)
-    best_models[-1][0].evaluate(env, True, True)
+    best_models[-1][0].evaluate(env, True)

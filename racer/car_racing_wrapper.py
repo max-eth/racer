@@ -9,21 +9,29 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 """
+import math
+from itertools import repeat
+from Box2D.b2 import fixtureDef, polygonShape
 
+import numpy as np
 import matplotlib.pyplot as plt
+import pyglet
+from pyglet import gl
 import skimage.transform
 import tempfile
 from scipy.spatial.transform import Rotation as R
 import skimage.color
-from gym.envs.box2d.car_racing import *
+import gym.envs.box2d.car_racing
 
 from tqdm import tqdm
+
+from racer.car import Car, COLL_TILE_CATEGORY, COLL_WHEEL_CATEGORY
 
 WINDOW_H = 1000
 WINDOW_W = 1000
 
 
-class CarRacingWrapper(CarRacing):
+class CarRacingWrapper(gym.envs.box2d.car_racing.CarRacing):
     def __init__(
         self,
         enable_linear_speed,
@@ -31,6 +39,8 @@ class CarRacingWrapper(CarRacing):
         enable_abs,
         enable_steering,
         headless,
+        num_cars=1,
+        focus_car=0,
         prerendered_data=None,
         render_view=False,
         export_frames=False,
@@ -45,6 +55,22 @@ class CarRacingWrapper(CarRacing):
         :param imgs: pre-rendered track images for each degree
         """
         super(CarRacingWrapper, self).__init__(verbose=0)
+        # collision detection
+        """
+        Collision Detection
+        |-------------+---------------+---------------|
+        | Object type | Category bits | collides with |
+        |-------------+---------------+---------------|
+        | Car         |        0x0004 | Nothing       |
+        | Wheel       |        0x0002 | Tile          |
+        | Tile        |        0x0001 | Wheel         |
+        """
+        self.fd_tile = fixtureDef(
+            shape=polygonShape(vertices=[(0, 0), (1, 0), (1, -1), (0, -1)]),
+            categoryBits=COLL_TILE_CATEGORY,
+            maskBits=COLL_WHEEL_CATEGORY,
+        )
+
         assert not (headless is True and prerendered_data is None)
         self.headless = headless
         self.last_action = None
@@ -56,8 +82,14 @@ class CarRacingWrapper(CarRacing):
         self.export_frames = export_frames
         self.frame = 0
         self.render_view = render_view
+        assert num_cars > 0
+        assert 0 <= focus_car < num_cars
+        self.focus_car = focus_car
+        self.num_cars = num_cars
+        self.cars = None
 
         if render_view:
+            assert num_cars == 1
             from pyformulas import screen
 
             self.canvas = np.zeros((32, 32))
@@ -67,7 +99,6 @@ class CarRacingWrapper(CarRacing):
             self.track = prerendered_data["track"]
             self.track_imgs = prerendered_data["track_imgs"]
             self.road_vertex_list = None
-            self.car = Car(self.world, *self.track[0][1:4])
             self.reset(regen_track=False)
         else:
             self.road_vertex_list = None
@@ -88,18 +119,21 @@ class CarRacingWrapper(CarRacing):
             alpha = 2 * math.pi * c / CHECKPOINTS + self.np_random.uniform(
                 0, 2 * math.pi * 1 / CHECKPOINTS
             )
-            rad = self.np_random.uniform(TRACK_RAD / 3, TRACK_RAD)
+            rad = self.np_random.uniform(
+                gym.envs.box2d.car_racing.TRACK_RAD / 3,
+                gym.envs.box2d.car_racing.TRACK_RAD,
+            )
             if c == 0:
                 alpha = 0
-                rad = 1.5 * TRACK_RAD
+                rad = 1.5 * gym.envs.box2d.car_racing.TRACK_RAD
             if c == CHECKPOINTS - 1:
                 alpha = 2 * math.pi * c / CHECKPOINTS
                 self.start_alpha = 2 * math.pi * (-0.5) / CHECKPOINTS
-                rad = 1.5 * TRACK_RAD
+                rad = 1.5 * gym.envs.box2d.car_racing.TRACK_RAD
             checkpoints.append((alpha, rad * math.cos(alpha), rad * math.sin(alpha)))
 
         # Go from one checkpoint to another to create track
-        x, y, beta = 1.5 * TRACK_RAD, 0, 0
+        x, y, beta = 1.5 * gym.envs.box2d.car_racing.TRACK_RAD, 0, 0
         dest_i = 0
         laps = 0
         track = []
@@ -139,13 +173,17 @@ class CarRacingWrapper(CarRacing):
             while beta - alpha < -1.5 * math.pi:
                 beta += 2 * math.pi
             prev_beta = beta
-            proj *= SCALE
+            proj *= gym.envs.box2d.car_racing.SCALE
             if proj > 0.3:
-                beta -= min(TRACK_TURN_RATE, abs(0.001 * proj))
+                beta -= min(
+                    gym.envs.box2d.car_racing.TRACK_TURN_RATE, abs(0.001 * proj)
+                )
             if proj < -0.3:
-                beta += min(TRACK_TURN_RATE, abs(0.001 * proj))
-            x += p1x * TRACK_DETAIL_STEP
-            y += p1y * TRACK_DETAIL_STEP
+                beta += min(
+                    gym.envs.box2d.car_racing.TRACK_TURN_RATE, abs(0.001 * proj)
+                )
+            x += p1x * gym.envs.box2d.car_racing.TRACK_DETAIL_STEP
+            y += p1y * gym.envs.box2d.car_racing.TRACK_DETAIL_STEP
             track.append((alpha, prev_beta * 0.5 + beta * 0.5, x, y))
             if laps > 4:
                 break
@@ -183,7 +221,7 @@ class CarRacingWrapper(CarRacing):
             np.square(first_perp_x * (track[0][2] - track[-1][2]))
             + np.square(first_perp_y * (track[0][3] - track[-1][3]))
         )
-        if well_glued_together > TRACK_DETAIL_STEP:
+        if well_glued_together > gym.envs.box2d.car_racing.TRACK_DETAIL_STEP:
             return False
 
         self.track = track
@@ -195,15 +233,17 @@ class CarRacingWrapper(CarRacing):
         for i in range(len(self.track)):
             good = True
             oneside = 0
-            for neg in range(BORDER_MIN_COUNT):
+            for neg in range(gym.envs.box2d.car_racing.BORDER_MIN_COUNT):
                 beta1 = self.track[i - neg - 0][1]
                 beta2 = self.track[i - neg - 1][1]
-                good &= abs(beta1 - beta2) > TRACK_TURN_RATE * 0.2
+                good &= (
+                    abs(beta1 - beta2) > gym.envs.box2d.car_racing.TRACK_TURN_RATE * 0.2
+                )
                 oneside += np.sign(beta1 - beta2)
-            good &= abs(oneside) == BORDER_MIN_COUNT
+            good &= abs(oneside) == gym.envs.box2d.car_racing.BORDER_MIN_COUNT
             border[i] = good
         for i in range(len(self.track)):
-            for neg in range(BORDER_MIN_COUNT):
+            for neg in range(gym.envs.box2d.car_racing.BORDER_MIN_COUNT):
                 border[i - neg] |= border[i]
 
         self.road = []
@@ -214,27 +254,31 @@ class CarRacingWrapper(CarRacing):
             alpha1, beta1, x1, y1 = self.track[i]
             alpha2, beta2, x2, y2 = self.track[i - 1]
             road1_l = (
-                x1 - TRACK_WIDTH * math.cos(beta1),
-                y1 - TRACK_WIDTH * math.sin(beta1),
+                x1 - gym.envs.box2d.car_racing.TRACK_WIDTH * math.cos(beta1),
+                y1 - gym.envs.box2d.car_racing.TRACK_WIDTH * math.sin(beta1),
             )
             road1_r = (
-                x1 + TRACK_WIDTH * math.cos(beta1),
-                y1 + TRACK_WIDTH * math.sin(beta1),
+                x1 + gym.envs.box2d.car_racing.TRACK_WIDTH * math.cos(beta1),
+                y1 + gym.envs.box2d.car_racing.TRACK_WIDTH * math.sin(beta1),
             )
             road2_l = (
-                x2 - TRACK_WIDTH * math.cos(beta2),
-                y2 - TRACK_WIDTH * math.sin(beta2),
+                x2 - gym.envs.box2d.car_racing.TRACK_WIDTH * math.cos(beta2),
+                y2 - gym.envs.box2d.car_racing.TRACK_WIDTH * math.sin(beta2),
             )
             road2_r = (
-                x2 + TRACK_WIDTH * math.cos(beta2),
-                y2 + TRACK_WIDTH * math.sin(beta2),
+                x2 + gym.envs.box2d.car_racing.TRACK_WIDTH * math.cos(beta2),
+                y2 + gym.envs.box2d.car_racing.TRACK_WIDTH * math.sin(beta2),
             )
             vertices = [road1_l, road1_r, road2_r, road2_l]
             self.fd_tile.shape.vertices = vertices
             t = self.world.CreateStaticBody(fixtures=self.fd_tile)
             t.userData = t
             c = 0.01  # *(i%3)
-            t.color = [ROAD_COLOR[0] + c, ROAD_COLOR[1] + c, ROAD_COLOR[2] + c]
+            t.color = [
+                gym.envs.box2d.car_racing.ROAD_COLOR[0] + c,
+                gym.envs.box2d.car_racing.ROAD_COLOR[1] + c,
+                gym.envs.box2d.car_racing.ROAD_COLOR[2] + c,
+            ]
             t.road_visited = False
             t.road_friction = 1.0
             t.fixtures[0].sensor = True
@@ -246,20 +290,44 @@ class CarRacingWrapper(CarRacing):
             if border[i]:
                 side = np.sign(beta2 - beta1)
                 b1_l = (
-                    x1 + side * TRACK_WIDTH * math.cos(beta1),
-                    y1 + side * TRACK_WIDTH * math.sin(beta1),
+                    x1 + side * gym.envs.box2d.car_racing.TRACK_WIDTH * math.cos(beta1),
+                    y1 + side * gym.envs.box2d.car_racing.TRACK_WIDTH * math.sin(beta1),
                 )
                 b1_r = (
-                    x1 + side * (TRACK_WIDTH + BORDER) * math.cos(beta1),
-                    y1 + side * (TRACK_WIDTH + BORDER) * math.sin(beta1),
+                    x1
+                    + side
+                    * (
+                        gym.envs.box2d.car_racing.TRACK_WIDTH
+                        + gym.envs.box2d.car_racing.BORDER
+                    )
+                    * math.cos(beta1),
+                    y1
+                    + side
+                    * (
+                        gym.envs.box2d.car_racing.TRACK_WIDTH
+                        + gym.envs.box2d.car_racing.BORDER
+                    )
+                    * math.sin(beta1),
                 )
                 b2_l = (
-                    x2 + side * TRACK_WIDTH * math.cos(beta2),
-                    y2 + side * TRACK_WIDTH * math.sin(beta2),
+                    x2 + side * gym.envs.box2d.car_racing.TRACK_WIDTH * math.cos(beta2),
+                    y2 + side * gym.envs.box2d.car_racing.TRACK_WIDTH * math.sin(beta2),
                 )
                 b2_r = (
-                    x2 + side * (TRACK_WIDTH + BORDER) * math.cos(beta2),
-                    y2 + side * (TRACK_WIDTH + BORDER) * math.sin(beta2),
+                    x2
+                    + side
+                    * (
+                        gym.envs.box2d.car_racing.TRACK_WIDTH
+                        + gym.envs.box2d.car_racing.BORDER
+                    )
+                    * math.cos(beta2),
+                    y2
+                    + side
+                    * (
+                        gym.envs.box2d.car_racing.TRACK_WIDTH
+                        + gym.envs.box2d.car_racing.BORDER
+                    )
+                    * math.sin(beta2),
                 )
                 self.road_poly.append(
                     ([b1_l, b1_r, b2_r, b2_l], (1, 1, 1) if i % 2 == 0 else (1, 0, 0))
@@ -271,16 +339,40 @@ class CarRacingWrapper(CarRacing):
         if not basic:
             current_color = (0.4, 0.8, 0.4, 1.0)
             colors.append(current_color)
-            vertices.append((-PLAYFIELD, +PLAYFIELD, 0))
+            vertices.append(
+                (
+                    -gym.envs.box2d.car_racing.PLAYFIELD,
+                    +gym.envs.box2d.car_racing.PLAYFIELD,
+                    0,
+                )
+            )
             colors.append(current_color)
-            vertices.append((+PLAYFIELD, +PLAYFIELD, 0))
+            vertices.append(
+                (
+                    +gym.envs.box2d.car_racing.PLAYFIELD,
+                    +gym.envs.box2d.car_racing.PLAYFIELD,
+                    0,
+                )
+            )
             colors.append(current_color)
-            vertices.append((+PLAYFIELD, -PLAYFIELD, 0))
+            vertices.append(
+                (
+                    +gym.envs.box2d.car_racing.PLAYFIELD,
+                    -gym.envs.box2d.car_racing.PLAYFIELD,
+                    0,
+                )
+            )
             colors.append(current_color)
-            vertices.append((-PLAYFIELD, -PLAYFIELD, 0))
+            vertices.append(
+                (
+                    -gym.envs.box2d.car_racing.PLAYFIELD,
+                    -gym.envs.box2d.car_racing.PLAYFIELD,
+                    0,
+                )
+            )
 
             current_color = (0.4, 0.9, 0.4, 1.0)
-            k = PLAYFIELD / 20.0
+            k = gym.envs.box2d.car_racing.PLAYFIELD / 20.0
             for x in range(-20, 20, 2):
                 for y in range(-20, 20, 2):
                     vertices.append((k * x + k, k * y + 0, 0))
@@ -317,16 +409,15 @@ class CarRacingWrapper(CarRacing):
         img[:, y, 0] = 255
         self.imshow(img)
 
-    def crop_current(self):
-
-        rot_mat = R.from_euler("z", +self.car.hull.angle, degrees=False)
+    def crop_current(self, car):
+        rot_mat = R.from_euler("z", +car.hull.angle, degrees=False)
         rot_car_x, rot_car_y, _ = rot_mat.apply(
-            [self.car.hull.position[1], self.car.hull.position[0], 0]
+            [car.hull.position[1], car.hull.position[0], 0]
         )
         car_x = 500 - int(rot_car_x)
         car_y = 500 + int(rot_car_y)
 
-        img = self.track_imgs[int(math.degrees(-self.car.hull.angle)) % 360]
+        img = self.track_imgs[int(math.degrees(-car.hull.angle)) % 360]
 
         crop = img[
             car_x - 24 : car_x + 8, car_y - 16 : car_y + 16, :,
@@ -346,7 +437,10 @@ class CarRacingWrapper(CarRacing):
             self.setup_viewer()
 
         self.transform.set_scale(1, 1)
-        self.transform.set_translation(WINDOW_W / 2, WINDOW_H / 2)
+        self.transform.set_translation(
+            gym.envs.box2d.car_racing.WINDOW_W / 2,
+            gym.envs.box2d.car_racing.WINDOW_H / 2,
+        )
 
         imgs = []
 
@@ -363,8 +457,8 @@ class CarRacingWrapper(CarRacing):
                 pixel_scale = (
                     win.context._nscontext.view().backingScaleFactor()
                 )  # pylint: disable=protected-access
-            VP_W = int(pixel_scale * WINDOW_W)
-            VP_H = int(pixel_scale * WINDOW_H)
+            VP_W = int(pixel_scale * gym.envs.box2d.car_racing.WINDOW_W)
+            VP_H = int(pixel_scale * gym.envs.box2d.car_racing.WINDOW_H)
 
             gl.glViewport(0, 0, VP_W, VP_H)
             t.enable()
@@ -383,45 +477,59 @@ class CarRacingWrapper(CarRacing):
 
         return imgs
 
-    def step(self, action):
-        self.last_action = action
-        if action is not None:
-            self.car.steer(-action[0])
-            self.car.gas(action[1])
-            self.car.brake(action[2])
+    def step(self, *actions):
+        assert len(actions) == len(self.cars)
+        self.last_action = actions[self.focus_car]
 
-        self.car.step(1.0 / FPS)
-        self.world.Step(1.0 / FPS, 6 * 30, 2 * 30)
-        self.t += 1.0 / FPS
+        for car, action in zip(self.cars, actions):
+            if action is not None:
+                car.steer(-action[0])
+                car.gas(action[1])
+                car.brake(action[2])
 
-        self.state = self.crop_current()
+            car.step(1.0 / gym.envs.box2d.car_racing.FPS)
+
+        self.states = [self.get_state(car) for car in self.cars]
+
+        self.world.Step(1.0 / gym.envs.box2d.car_racing.FPS, 6 * 30, 2 * 30)
+        self.t += 1.0 / gym.envs.box2d.car_racing.FPS
 
         step_reward = 0
         done = False
-        if action is not None:  # First step without action, called from reset()
+
+        # calculate reward
+        focus_car = self.cars[self.focus_car]
+
+        if (
+            actions[self.focus_car] is not None
+        ):  # First step without action, called from reset()
             tiles_of_wheels = {
-                tile for wheel in self.car.wheels for tile in wheel.tiles
+                tile for wheel in focus_car.wheels for tile in wheel.tiles
             }
+
             if all(t.road_friction != 1.0 for t in tiles_of_wheels):
+                # penalty if the car goes off the road
                 self.reward -= 10
             else:
                 self.reward -= 0.1
-            # We actually don't want to count fuel spent, we want car to be faster.
-            # self.reward -=  10 * self.car.fuel_spent / ENGINE_POWER
-            self.car.fuel_spent = 0.0
+
             step_reward = self.reward - self.prev_reward
             self.prev_reward = self.reward
             if self.tile_visited_count == len(self.track):
                 done = True
-            x, y = self.car.hull.position
-            if abs(x) > PLAYFIELD or abs(y) > PLAYFIELD:
+            x, y = focus_car.hull.position
+            if (
+                abs(x) > gym.envs.box2d.car_racing.PLAYFIELD
+                or abs(y) > gym.envs.box2d.car_racing.PLAYFIELD
+            ):
                 done = True
                 step_reward = -100
         self.max_reward = max(self.reward, self.max_reward)
 
-        return self.state, step_reward, done, {}
+        return self.states, step_reward, done, {}
 
     def render_indicators(self, W, H):
+        focus_car = self.cars[self.focus_car]
         gl.glBegin(gl.GL_QUADS)
         s = W / 40.0
         h = H / 40.0
@@ -446,8 +554,8 @@ class CarRacingWrapper(CarRacing):
             gl.glVertex3f((place + 0) * s, 2 * h, 0)
 
         true_speed = np.sqrt(
-            np.square(self.car.hull.linearVelocity[0])
-            + np.square(self.car.hull.linearVelocity[1])
+            np.square(focus_car.hull.linearVelocity[0])
+            + np.square(focus_car.hull.linearVelocity[1])
         )
         vertical_ind(5, 0.02 * true_speed, (1, 1, 1))
 
@@ -455,8 +563,8 @@ class CarRacingWrapper(CarRacing):
             vertical_ind(8, 2.5 * self.last_action[1], (0, 1, 0))  # gas
             vertical_ind(9, 2.5 * self.last_action[2], (1, 0, 0))  # brake
 
-        horiz_ind(20, -10.0 * self.car.wheels[0].joint.angle, (0, 1, 0))
-        horiz_ind(30, -0.8 * self.car.hull.angularVelocity, (1, 0, 0))
+        horiz_ind(20, -10.0 * focus_car.wheels[0].joint.angle, (0, 1, 0))
+        horiz_ind(30, -0.8 * focus_car.hull.angularVelocity, (1, 0, 0))
         gl.glEnd()
         self.score_label.text = "R: %04i" % self.reward
         self.score_label.draw()
@@ -471,12 +579,14 @@ class CarRacingWrapper(CarRacing):
     def setup_viewer(self):
         from gym.envs.classic_control import rendering
 
-        self.viewer = rendering.Viewer(WINDOW_W, WINDOW_H)
+        self.viewer = rendering.Viewer(
+            gym.envs.box2d.car_racing.WINDOW_W, gym.envs.box2d.car_racing.WINDOW_H
+        )
         self.score_label = pyglet.text.Label(
             "0000",
             font_size=36,
             x=20,
-            y=WINDOW_H * 2.5 / 40.00,
+            y=gym.envs.box2d.car_racing.WINDOW_H * 2.5 / 40.00,
             anchor_x="left",
             anchor_y="center",
             color=(255, 255, 255, 255),
@@ -485,7 +595,7 @@ class CarRacingWrapper(CarRacing):
             "0000",
             font_size=12,
             x=300,
-            y=WINDOW_H * 2.5 / 40.00,
+            y=gym.envs.box2d.car_racing.WINDOW_H * 2.5 / 40.00,
             anchor_x="left",
             anchor_y="center",
             color=(255, 255, 255, 255),
@@ -494,7 +604,7 @@ class CarRacingWrapper(CarRacing):
             "0000",
             font_size=12,
             x=300,
-            y=WINDOW_H * 2.5 / 40.00 - 20,
+            y=gym.envs.box2d.car_racing.WINDOW_H * 2.5 / 40.00 - 20,
             anchor_x="left",
             anchor_y="center",
             color=(255, 255, 255, 255),
@@ -513,23 +623,25 @@ class CarRacingWrapper(CarRacing):
             return  # reset() not called yet
 
         # zoom = 0.1 * SCALE * max(1 - self.t, 0) + ZOOM * SCALE * min(self.t, 1)  # Animate zoom first second
-        zoom = ZOOM * SCALE
-        scroll_x = self.car.hull.position[0]
-        scroll_y = self.car.hull.position[1]
-        angle = -self.car.hull.angle
-        vel = self.car.hull.linearVelocity
+        zoom = gym.envs.box2d.car_racing.ZOOM * gym.envs.box2d.car_racing.SCALE
+        focus_car = self.cars[self.focus_car]
+        scroll_x = focus_car.hull.position[0]
+        scroll_y = focus_car.hull.position[1]
+        angle = -focus_car.hull.angle
+        vel = focus_car.hull.linearVelocity
         if np.linalg.norm(vel) > 0.5:
             angle = math.atan2(vel[0], vel[1])
         self.transform.set_scale(zoom, zoom)
         self.transform.set_translation(
-            WINDOW_W / 2
+            gym.envs.box2d.car_racing.WINDOW_W / 2
             - (scroll_x * zoom * math.cos(angle) - scroll_y * zoom * math.sin(angle)),
-            WINDOW_H / 4
+            gym.envs.box2d.car_racing.WINDOW_H / 4
             - (scroll_x * zoom * math.sin(angle) + scroll_y * zoom * math.cos(angle)),
         )
         self.transform.set_rotation(angle)
 
-        self.car.draw(self.viewer, mode != "state_pixels")
+        for car in self.cars:
+            car.draw(self.viewer, mode != "state_pixels")
 
         arr = None
         win = self.viewer.window
@@ -539,19 +651,19 @@ class CarRacingWrapper(CarRacing):
         win.clear()
         t = self.transform
         if mode == "rgb_array":
-            VP_W = VIDEO_W
-            VP_H = VIDEO_H
+            VP_W = gym.envs.box2d.car_racing.VIDEO_W
+            VP_H = gym.envs.box2d.car_racing.VIDEO_H
         elif mode == "state_pixels":
-            VP_W = STATE_W
-            VP_H = STATE_H
+            VP_W = gym.envs.box2d.car_racing.STATE_W
+            VP_H = gym.envs.box2d.car_racing.STATE_H
         else:
             pixel_scale = 1
             if hasattr(win.context, "_nscontext"):
                 pixel_scale = (
                     win.context._nscontext.view().backingScaleFactor()
                 )  # pylint: disable=protected-access
-            VP_W = int(pixel_scale * WINDOW_W)
-            VP_H = int(pixel_scale * WINDOW_H)
+            VP_W = int(pixel_scale * gym.envs.box2d.car_racing.WINDOW_W)
+            VP_H = int(pixel_scale * gym.envs.box2d.car_racing.WINDOW_H)
 
         gl.glViewport(0, 0, VP_W, VP_H)
         t.enable()
@@ -560,7 +672,9 @@ class CarRacingWrapper(CarRacing):
             geom.render()
         self.viewer.onetime_geoms = []
         t.disable()
-        self.render_indicators(WINDOW_W, WINDOW_H)
+        self.render_indicators(
+            gym.envs.box2d.car_racing.WINDOW_W, gym.envs.box2d.car_racing.WINDOW_H
+        )
 
         if store_frames:
             pyglet.image.get_buffer_manager().get_color_buffer().save(
@@ -568,53 +682,55 @@ class CarRacingWrapper(CarRacing):
             )
             self.frame += 1
 
-        if mode == "human":
-            win.flip()
-            return self.viewer.isopen
+        win.flip()
+        return self.viewer.isopen
 
-        image_data = (
-            pyglet.image.get_buffer_manager().get_color_buffer().get_image_data()
-        )
+    def get_state(self, car):
+        state = self.crop_current(car)
+        vectors = (
+            []
+        )  # DO NOT CHANGE THE ORDER OF THE INPUTS. car_racing_env.feature_names relies on it
 
-        arr = np.fromstring(image_data.get_data(), dtype=np.uint8, sep="")
-        arr = arr.reshape(VP_H, VP_W, 4)
-        arr = arr[::-1, :, 0:3]
-
-        return arr
-
-    def get_state(self):
-        vectors = []  # DO NOT CHANGE THE ORDER OF THE INPUTS. car_racing_env.feature_names relies on it
         if self.enable_linear_speed:
             linear_speed = np.sqrt(
-                np.square(self.car.hull.linearVelocity[0])
-                + np.square(self.car.hull.linearVelocity[1])
+                np.square(car.hull.linearVelocity[0])
+                + np.square(car.hull.linearVelocity[1])
             )
             vectors.append(np.array([linear_speed]))
 
         if self.enable_angular_speed:
-            vectors.append(np.array([self.car.hull.angularVelocity]))
+            vectors.append(np.array([car.hull.angularVelocity]))
 
         if self.enable_abs:
-            vectors.append(np.array([self.car.wheels[i].omega for i in range(4)]))
+            vectors.append(np.array([car.wheels[i].omega for i in range(4)]))
 
         if self.enable_steering:
-            vectors.append(np.array([self.car.wheels[0].joint.angle]))
+            vectors.append(np.array([car.wheels[0].joint.angle]))
 
-        image = self.state[:, :, 0] / 255
+        image = state[:, :, 0] / 255
         image = image.astype(np.float32)
         return (
             image.reshape(1, 1, image.shape[0], image.shape[0]),
             np.concatenate(vectors, axis=0).astype(np.float32),
         )
 
-    def reset(self, regen_track):
+    def reset(self, regen_track, num_cars=None):
+        """
+        Reset the environment. If num_cars is provided, you can change the amount of cars in the environment.
+        :param regen_track: whether to generate a new track
+        :param num_cars: if not None, the amount of cars will be changed to this value
+        :return: the result of the first step (with action None)
+        """
         self._destroy()
         self.max_reward = -100000000000000
         self.reward = 0.0
         self.prev_reward = 0.0
         self.frame = 0
         self.tile_visited_count = 0
+        self.spin_reward = 0
         self.t = 0.0
+        if num_cars is not None:
+            self.num_cars = num_cars
 
         if regen_track:
             while True:
@@ -631,11 +747,28 @@ class CarRacingWrapper(CarRacing):
         else:
             self.create_tiles()
 
-        if self.car is not None:
-            self.car.destroy()
-        self.car = Car(self.world, *self.track[0][1:4])
+        if self.cars is not None:
+            for car in self.cars:
+                car.destroy()
 
-        return self.step(None)[0]
+        self.cars = tuple(
+            Car(self.world, *self.track[0][1:4]) for _ in range(self.num_cars)
+        )
+
+        # just a list of random colors
+        colors = [
+            (0.8, 0.0, 0.0),
+            (0.0, 0.0, 0.8),
+            (0.0, 0.8, 0.0),
+            (0.8, 0.8, 0.0),
+            (0.0, 0.8, 0.8),
+            (0.8, 0.0, 0.8),
+        ]
+        for color, car in zip(colors, self.cars):
+            car.hull.color = color
+        # any more cars will just keep the default color, which is red
+
+        return self.step(*[None for _ in range(self.num_cars)])[0]
 
     def _destroy(self):
         if not self.road:
@@ -673,7 +806,7 @@ if __name__ == "__main__":
         if k == key.DOWN:
             a[2] = 0
 
-    env = CarRacingWrapper(True, True, True, True)
+    env = CarRacingWrapper(True, True, True, True, headless=False)
     env.render()
     env.viewer.window.on_key_press = key_press
     env.viewer.window.on_key_release = key_release

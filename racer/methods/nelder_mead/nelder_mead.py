@@ -17,16 +17,17 @@ setup_sacred_experiment(ex)
 
 @ex.config
 def nm_config():
-    n = 44
-    alpha = 0.7
-    beta = 1.8
+    alpha = 1
+    beta = 2
     gamma = 0.5
-    sigma = 2.5
-    weighted_average = True
-    simplex_init = "random_n"
-    rate = 0.01
+    sigma = 1.5
+    weighted_average = False
+    simplex_init = "random"
+    rate = 0.5
     random_n_init = 30
-    iterations = 1000
+    max_iterations = 20000
+    fitness_goal = 940
+    epsilon = 0.1
 
 
 class NelderMead:
@@ -53,6 +54,7 @@ class NelderMead:
         self.alpha = alpha
         self.beta = beta
         self.simplex_init = simplex_init
+        self.iteration = 0
         self.random_n_init = random_n_init
         self.rate = rate
         assert simplex_init in ["varadhan", "random_gauss", "random_n", "random"]
@@ -116,7 +118,7 @@ class NelderMead:
             for _ in range(self.N):
                 models.append(self.model_generator())
 
-        models_fitness = NNAgent.parallel_evaluate(self.env, models)
+        models_fitness = NNAgent.parallel_evaluate(models)
         for model, fitness in tqdm(zip(models, models_fitness)):
             self.add_model(model, fitness, self.nns_fitness)
 
@@ -124,6 +126,7 @@ class NelderMead:
 
     def reset_nns(self):
         print("REEEEEEEEEEEEEEEEEEESET")
+        self.resets += 1
         best_model, best_model_fitness = self.nns_fitness.pop()
         nns_fitness_new = [(best_model, best_model_fitness)]
         new_models = []
@@ -135,23 +138,20 @@ class NelderMead:
                 * (best_model.get_flat_parameters() - old_model.get_flat_parameters())
             )
             new_models.append(new_model)
-        new_models_fitness = NNAgent.parallel_evaluate(self.env, new_models)
-        for model, fitness in tqdm(zip(new_models, new_models_fitness)):
+        new_models_fitness = NNAgent.parallel_evaluate(new_models)
+        for model, fitness in zip(new_models, new_models_fitness):
             self.add_model(model, fitness, nns_fitness_new)
         assert len(nns_fitness_new) == self.N + 1
         self.nns_fitness = nns_fitness_new
 
     def step(self):
+        self.iteration += 1
         worst_model, worst_model_fitness = self.nns_fitness.pop(0)
         if self.weighted_average:
             total_sum = sum(fitness for _, fitness in self.nns_fitness)
             bary_model_parameters = np.sum(
-                np.fromiter(
-                    np.array(
-                        [i * fitness / total_sum for i in model.get_flat_parameters()]
-                    )
-                    for (model, fitness) in self.nns_fitness
-                )
+                np.array([i * fitness / total_sum for i in model.get_flat_parameters()])
+                for (model, fitness) in self.nns_fitness
             )
         else:
             bary_model_parameters = np.mean(
@@ -203,36 +203,42 @@ class NelderMead:
                 self.reset_nns()
 
     @ex.capture
-    def run(self, iterations, _run):
+    def run(self, fitness_goal, epsilon, max_iterations, _run):
         run_dir_path = tempfile.mkdtemp()
         print("Run directory:", run_dir_path)
         best_models = [self.nns_fitness[-1]]
-        for i in tqdm(range(iterations), desc="running NM"):
+        while best_models[-1][1] < fitness_goal and self.iteration < max_iterations:
             self.step()
-            _run.log_scalar("best_model", best_models[-1][1], i)
+            _run.log_scalar("best_model", best_models[-1][1], self.iteration)
             _run.log_scalar(
                 "avg_model",
                 sum([s[1] for s in self.nns_fitness]) / len(self.nns_fitness),
-                i,
+                self.iteration,
             )
             if best_models[-1][1] < self.nns_fitness[-1][1]:
                 best_models.append(self.nns_fitness[-1])
-                fname = os.path.join(run_dir_path, "best{}.npy".format(i))
+                fname = os.path.join(run_dir_path, "best{}.npy".format(self.iteration))
                 np.save(
                     fname, self.nns_fitness[-1][0].get_flat_parameters(),
                 )
-                _run.add_artifact(fname, name="best{}".format(i))
-                self.nns_fitness[-1][0].evaluate(self.env, True)
+                _run.add_artifact(fname, name="best{}".format(self.iteration))
+                print(self.nns_fitness[-1][0].evaluate(self.env, True))
+            elif self.nns_fitness[-1][1] - self.nns_fitness[0][1] < epsilon:
+                # new initialization
+                print("Random REEEEEEEEESTART")
+                model = self.model_generator()
+                self.nns_fitness = [(model, model.evaluate(env=self.env))]
+                self.initialize_simplex()
         return best_models
 
 
 @ex.automain
-def run(iterations):
+def run():
 
     env = init_env(track_data=load_pickle("track_data.p"))
     optimizer = NelderMead(env=env, model_generator=(lambda: NNAgent()))
 
-    best_models = optimizer.run(iterations)
+    best_models = optimizer.run()
     print(len(best_models))
     print("Best fitness: " + str(best_models[-1][1]))
     best_models[-1][0].evaluate(env, True, False)

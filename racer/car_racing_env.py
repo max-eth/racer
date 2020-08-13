@@ -54,9 +54,11 @@ def feature_size(
 
 @car_racing_env.capture
 def feature_names(
-        enable_abs, enable_linear_speed, enable_angular_speed, enable_steering,
+    enable_abs, enable_linear_speed, enable_angular_speed, enable_steering,
 ):
-    names = [] # DO NOT CHANGE THE ORDER. it is derived from car_racing_wrappe.get_state
+    names = (
+        []
+    )  # DO NOT CHANGE THE ORDER. it is derived from car_racing_wrappe.get_state
 
     if enable_linear_speed:
         names.append("linear_speed")
