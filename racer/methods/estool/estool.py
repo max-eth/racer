@@ -46,8 +46,8 @@ def run(sigma, weight_decay, learning_rate, antithetic, _run):
           agent.set_flat_parameters(solutions[i])
           rewards[i] = agent.evaluate(env)
 
+      _run.log_scalar("best_reward", max(rewards), epoch)
       solver.tell(rewards)
 
-      _run.log_scalar("best_reward", max(rewards), epoch)
 
 
