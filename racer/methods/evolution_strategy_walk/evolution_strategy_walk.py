@@ -134,10 +134,10 @@ class ESW:
             rewards = (rewards.argsort() / (rewards.size - 1)) - 0.5
             assert rewards.sum() < 0.001
         elif self.weighting == "top_k":
-            top_k_rewards_idx = rewards.argsort()[-self.top_k:]
+            bot_k_rewards_idx = rewards.argsort()[:-self.top_k]
             rewards = np.zeros_like(rewards)
-            rewards[top_k_rewards_idx] = 1
-            rewards = rewards / np.sum(rewards)
+            rewards = (rewards - np.mean(rewards)) / np.std(rewards)
+            rewards[bot_k_rewards_idx] = 0
         else:
             raise ValueError("Unknown weighting '{}'".format(self.weighting))
 
@@ -148,35 +148,34 @@ class ESW:
             _run.log_scalar("avg_l2_penalty", np.mean(l2_penalty), iter)
             rewards -= l2_penalty
 
-        # normalized_rewards = (rewards - np.mean(rewards)) / np.std(rewards)
         update = epsilon.T @ rewards
 
         # todo test -g + theta
         # https://github.com/openai/evolution-strategies-starter/blob/master/es_distributed/es.py#L249
-        if self.weighting == "top_k":
-            candidate = self.parameters + update
-            self.main_agent.set_flat_parameters(candidate)
-            score = self.main_agent.evaluate(get_env())
-            if score < self.fitness:
-                choice = random.choice(range(len(top_k_rewards_idx)))
-                print(
-                    "Couldn't improve, falling back to greedy, chose {}st with reward {}".format(
-                        choice, orig_rewards[top_k_rewards_idx[choice]]
-                    )
-                )
-                choice = top_k_rewards_idx[choice]
-                self.parameters = epsilon[random.choice(top_k_rewards_idx), :]
-            else:
-                self.parameters = candidate
-
+        # if self.weighting == "top_k":
+        #     candidate = self.parameters + update
+        #     self.main_agent.set_flat_parameters(candidate)
+        #     score = self.main_agent.evaluate(get_env())
+        #     if score < self.fitness:
+        #         choice = random.choice(range(len(top_k_rewards_idx)))
+        #         print(
+        #             "Couldn't improve, falling back to greedy, chose {}st with reward {}".format(
+        #                 choice, orig_rewards[top_k_rewards_idx[choice]]
+        #             )
+        #         )
+        #         choice = top_k_rewards_idx[choice]
+        #         self.parameters = epsilon[random.choice(top_k_rewards_idx), :]
+        #     else:
+        #         self.parameters = candidate
+        #
+        # else:
+        if self.optimizer is None:
+            self.parameters = (
+                    self.parameters + update
+            )
         else:
-            if self.optimizer is None:
-                self.parameters = (
-                        self.parameters + update
-                )
-            else:
-                gradient_estimate = (1.0 / (self.num_evals * self.sigma)) * update
-                self.optimizer.update(self.parameters, -gradient_estimate)
+            gradient_estimate = (1.0 / (self.num_evals * self.sigma)) * update
+            self.optimizer.update(self.parameters, -gradient_estimate)
 
         assert self.parameters.shape == self.param_shape
         self.main_agent.set_flat_parameters(self.parameters)
