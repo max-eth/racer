@@ -11,9 +11,9 @@ run() {
     done
 }
 
-for n_elitism in "0 1 2 3 4 8 16 32"
+for n_elitism in "0" "1" "2" "3" "4" "8" "16" "32"
 do
-  for tournament_size in "2 4 8 16 32"
+  for tournament_size in "2" "4" "8" "16" "32"
      do
        run 4 n_elitism$n_elitism-t_size$tournament_size n_elitism=$n_elitism selector_params.tournamen_size=$tournament_size
      done
