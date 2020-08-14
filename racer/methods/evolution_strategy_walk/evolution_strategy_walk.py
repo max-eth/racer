@@ -220,10 +220,10 @@ class ESW:
 
 @ex.automain
 def run(iterations, _run):
-    temp_path = tempfile.mkdtemp()
+    temp_path = os.environ["TMPDIR"]
     env = init_env(track_data=load_pickle("track_data.p"))
     optimizer = ESW(env=env, temp_path=temp_path)
     optimizer.run(iterations)
     #NNAgent.pool.close()
-    shutil.rmtree(temp_path, ignore_errors=True)
+    #shutil.rmtree(temp_path, ignore_errors=True)
     return optimizer.fitness
