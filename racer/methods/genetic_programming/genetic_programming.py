@@ -166,9 +166,10 @@ class GeneticOptimizer(Method):
             ind.fitness = fitness
 
         if regen_track:
-            # reset pool
-            Agent.pool.close()
-            Agent.pool = None
+            if parallel:
+                # reset pool
+                Agent.pool.close()
+                Agent.pool = None
             # reset env
             get_env().reset(regen_track=True)
 
@@ -290,14 +291,16 @@ class GeneticOptimizer(Method):
 
 
 @ex.automain
-def run(track_file):
+def run(track_file, parallel):
     run_dir_path = tempfile.mkdtemp()
     print("Run directory:", run_dir_path)
 
     init_env(track_data=load_pickle(track_file))
     optim = GeneticOptimizer(run_dir_path=run_dir_path)
     optim.run()
-    Agent.pool.close()
+
+    if parallel:
+        Agent.pool.close()
 
     print("Done.\nTotal evals:\n{}".format(optim.n_evals))
     return optim.best_individual.fitness
