@@ -37,9 +37,11 @@ def experiment_config():
 
     show_best = True
 
+    gen_gauss = True
+
     # tree gen config
     operators = building_blocks.named_operators
-    gen_val = building_blocks.gen_val
+    gen_val = building_blocks.gen_val if gen_gauss else random.choice([1, 2, 3])
     min_height = 6
     max_height = 8
     p_gen_op, p_gen_arg, p_gen_const = 0.7, 0.25, 0.05
@@ -51,7 +53,7 @@ def experiment_config():
     p_mutate = [0.25, 0.2, 0.1]
     p_reproduce = [0.1, 0.1, 0.05]
     p_crossover = [0.5, 0.4, 0.15]
-    p_noise = [0.15, 0.3, 0.7]
+    p_noise = [0.15 if gen_gauss else 0, 0.3, 0.7]
 
     use_schedule = True  # for experiments without schedule, use only first schedule values
 
