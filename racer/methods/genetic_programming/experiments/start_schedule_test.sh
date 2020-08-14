@@ -1,5 +1,5 @@
 BASE_COMMAND='python -m racer.methods.evolution_strategy_walk.genetic_programming -F'
-WITH_PREFIX='with car_racing_env.headless=True parallel=False'
+WITH_PREFIX='with car_racing_env.headless=True parallel=False show_best=False'
 
 run() {
     number=$1
