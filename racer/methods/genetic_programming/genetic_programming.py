@@ -53,12 +53,14 @@ def experiment_config():
     p_crossover = [0.5, 0.4, 0.15]
     p_noise = [0.15, 0.3, 0.7]
 
+    use_schedule = True  # for experiments without schedule, use only first schedule values
+
     scheduler = Scheduler(
-        milestones=milestones,
-        p_mutate=p_mutate,
-        p_reproduce=p_reproduce,
-        p_crossover=p_crossover,
-        p_noise=p_noise,
+        milestones=milestones if use_schedule else milestones[:1],
+        p_mutate=p_mutate if use_schedule else p_mutate[:1],
+        p_reproduce=p_reproduce if use_schedule else p_reproduce[:1],
+        p_crossover=p_crossover if use_schedule else p_crossover[:1],
+        p_noise=p_noise if use_schedule else p_noise[:1],
     )
 
     gen_noise = lambda: random.gauss(mu=0, sigma=1)
@@ -292,7 +294,7 @@ class GeneticOptimizer(Method):
 
 @ex.automain
 def run(track_file, parallel):
-    run_dir_path = tempfile.mkdtemp()
+    run_dir_path = os.environ["TMPDIR"]  # tempfile.mkdtemp()
     print("Run directory:", run_dir_path)
 
     init_env(track_data=load_pickle(track_file))
