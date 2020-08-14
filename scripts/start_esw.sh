@@ -7,7 +7,7 @@ run() {
     name=$1
     shift
     for i in `seq $number`; do
-      echo bsub -J $name-$i -n 1 -W 5:30 -R "rusage[mem=3000]" $BASE_COMMAND logs/$name-$i $WITH_PREFIX $@ 
+      echo bsub -J $name-$i -n 1 -W 5:30 -R "rusage[mem=2500]" $BASE_COMMAND logs/$name-$i $WITH_PREFIX $@ 
     done
 }
 
