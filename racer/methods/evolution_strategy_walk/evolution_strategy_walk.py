@@ -1,6 +1,7 @@
 import os
 import random
 import tempfile
+import shutil
 import time
 
 import numpy as np
@@ -54,6 +55,7 @@ class ESW:
         optimizer,
         learning_rate,
         save_distribution,
+        temp_path,
     ):
         self.fitness = float("-inf")
         self.top_k = top_k
@@ -84,6 +86,7 @@ class ESW:
         self.param_shape = self.agents[0].get_flat_parameters().shape
         self.weighting = weighting
         self.proportional_filter = proportional_filter
+        self.temp_path = temp_path
 
     @ex.capture
     def step(self, iter, _run):
@@ -110,7 +113,7 @@ class ESW:
             plt.xlabel("rank")
             plt.ylabel("reward")
             plt.yscale("log")
-            fname = "dist_{}.png".format(iter)
+            fname = "{}/dist_{}.png".format(self.temp_path, iter)
             plt.savefig(fname)
             _run.add_artifact(fname)
             plt.clf()
@@ -183,9 +186,6 @@ class ESW:
 
     @ex.capture
     def run(self, iterations, _run):
-        run_dir_path = tempfile.mkdtemp()
-        print("Run directory:", run_dir_path)
-
         last_best_fitness = float("-inf")
         last_best_parameters = None
         for i in tqdm(range(iterations), desc="Running ESW"):
@@ -195,7 +195,7 @@ class ESW:
                 "avg_fitness", self.avg_fitness, i,
             )
             if self.fitness > last_best_fitness:
-                fname = os.path.join(run_dir_path, "best{}.npy".format(i))
+                fname = os.path.join(self.temp_path, "best{}.npy".format(i))
                 np.save(
                     fname, self.parameters,
                 )
@@ -220,8 +220,10 @@ class ESW:
 
 @ex.automain
 def run(iterations, _run):
+    temp_path = tempfile.mkdtemp()
     env = init_env(track_data=load_pickle("track_data.p"))
-    optimizer = ESW(env=env)
+    optimizer = ESW(env=env, temp_path=temp_path)
     optimizer.run(iterations)
-    NNAgent.pool.close()
+    #NNAgent.pool.close()
+    shutil.rmtree(temp_path, ignore_errors=True)
     return optimizer.fitness
