@@ -17,5 +17,6 @@ do
      do
        set -- $min_max  # now min height in $1 and max height in $2
        run 4 use_schedule_$use_schedule-height_$1_$2 use_schedule=$use_schedule min_height=$1 max_height=$2
+     done
 done
 
