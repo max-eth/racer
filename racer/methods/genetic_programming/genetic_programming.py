@@ -85,6 +85,7 @@ class GeneticOptimizer(Method):
         run_dir_path=None,
     ):
 
+        self.n_evals = 0
         self.run_dir_path = run_dir_path
 
         image_feature_names = ["PIXEL_{}".format(coords) for coords in image_features()]
@@ -150,6 +151,9 @@ class GeneticOptimizer(Method):
             individuals_to_evaluate = [
                 ind for ind in self.population if ind.fitness is None
             ]
+
+        self.n_evals += len(individuals_to_evaluate)
+
         agents_to_evaluate = [
             GeneticAgent(policy_function=ind) for ind in individuals_to_evaluate
         ]
@@ -294,4 +298,6 @@ def run(track_file):
     optim = GeneticOptimizer(run_dir_path=run_dir_path)
     optim.run()
     Agent.pool.close()
+
+    print("Done.\nTotal evals:\n{}".format(optim.n_evals))
     return optim.best_individual.fitness
