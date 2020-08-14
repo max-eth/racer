@@ -38,25 +38,16 @@ def run(sigma, weight_decay, learning_rate, antithetic, _run):
 
     for epoch in tqdm(range(300)):
 
-      # ask the ES to give us a set of candidate solutions
       solutions = solver.ask()
 
-      # create an array to hold the solutions.
-      # solver.popsize = population size
       rewards = np.zeros(solver.popsize)
 
-      # calculate the reward for each given solution
-      # using your own evaluate() method
       for i in range(solver.popsize):
           agent.set_flat_parameters(solutions[i])
           rewards[i] = agent.evaluate(env)
 
-      # give rewards back to ES
+      _run.log_scalar("best_reward", max(rewards), epoch)
       solver.tell(rewards)
 
-      # get best parameter, reward from ES
-      best_mu, best_reward, curr_best_reward, _ = solver.result()
-      _run.log_scalar("best_reward", best_reward, epoch)
-      _run.log_scalar("curr_best_reward", curr_best_reward, epoch)
 
 
