@@ -21,8 +21,8 @@ def cfg():
     mutation_rate = 0.3 #0.1 0.5
     parent_selec_strat = "truncation"
     children_selec_strat = "n_plus_lambda"
-    population_size = 100
-    num_children = 20 #50
+    population_size = 200
+    num_children = 100 #50
     generations = 600
     gauss_std = 0.5
     parallel = False
@@ -146,7 +146,7 @@ class EvolutionStrategy:
         if self.parallel:
             children_fitness = NNAgent.parallel_evaluate(children_models)
         else:
-            children_fitness = [agent.evaluate(self.env) for agent in children_models]
+            children_fitness = [agent.evaluate(self.env, visible=False) for agent in children_models]
         return zip(children_models, children_fitness)
 
 

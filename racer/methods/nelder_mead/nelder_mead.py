@@ -20,10 +20,10 @@ def nm_config():
     alpha = 1
     beta = 2
     gamma = 0.5
-    sigma = 1.5
+    sigma = 0.5
     weighted_average = False
-    simplex_init = "random"
-    rate = 0.5
+    simplex_init = "varadhan"
+    gauss_std = 2
     random_n_init = 30
     max_iterations = 20000
     fitness_goal = 940
@@ -42,7 +42,7 @@ class NelderMead:
         sigma,
         weighted_average,
         simplex_init,
-        rate=None,
+        gauss_std=None,
         random_n_init=None,
     ):
         self.env = env
@@ -56,10 +56,10 @@ class NelderMead:
         self.simplex_init = simplex_init
         self.iteration = 0
         self.random_n_init = random_n_init
-        self.rate = rate
+        self.gauss_std = gauss_std
         assert simplex_init in ["varadhan", "random_gauss", "random_n", "random"]
         if simplex_init == "random_gauss":
-            assert rate is not None
+            assert gauss_std is not None
         elif simplex_init == "random_n":
             assert random_n_init is not None
         self.gamma = gamma
@@ -95,7 +95,7 @@ class NelderMead:
             duplicated_parameters = np.tile(
                 self.nns_fitness[0][0].get_flat_parameters(), [self.N, 1]
             )
-            randomized_parameters = np.random.normal(duplicated_parameters, self.rate)
+            randomized_parameters = np.random.normal(duplicated_parameters, self.gauss_std)
             models = []
             for params in randomized_parameters:
                 model = self.model_generator()
@@ -126,7 +126,7 @@ class NelderMead:
 
     def reset_nns(self):
         print("REEEEEEEEEEEEEEEEEEESET")
-        self.resets += 1
+        #self.resets += 1
         best_model, best_model_fitness = self.nns_fitness.pop()
         nns_fitness_new = [(best_model, best_model_fitness)]
         new_models = []
@@ -201,6 +201,8 @@ class NelderMead:
             else:
                 self.nns_fitness.insert(0, (worst_model, worst_model_fitness))
                 self.reset_nns()
+                return True
+        return False
 
     @ex.capture
     def run(self, fitness_goal, epsilon, max_iterations, _run):
@@ -208,7 +210,9 @@ class NelderMead:
         print("Run directory:", run_dir_path)
         best_models = [self.nns_fitness[-1]]
         while best_models[-1][1] < fitness_goal and self.iteration < max_iterations:
-            self.step()
+            if self.step():
+                _run.log_scalar("reset", self.nns_fitness[-1][1], self.iteration)
+            print(np.linalg.norm(self.nns_fitness[-1][0].get_flat_parameters()-self.nns_fitness[0][0].get_flat_parameters()))
             _run.log_scalar("best_model", best_models[-1][1], self.iteration)
             _run.log_scalar(
                 "avg_model",
@@ -226,6 +230,8 @@ class NelderMead:
             elif self.nns_fitness[-1][1] - self.nns_fitness[0][1] < epsilon:
                 # new initialization
                 print("Random REEEEEEEEESTART")
+                print(np.linalg.norm(self.nns_fitness[-1][0].get_flat_parameters()-self.nns_fitness[0][0].get_flat_parameters()))
+                _run.log_scalar("restart", self.nns_fitness[-1][1], self.iteration)
                 model = self.model_generator()
                 self.nns_fitness = [(model, model.evaluate(env=self.env))]
                 self.initialize_simplex()
