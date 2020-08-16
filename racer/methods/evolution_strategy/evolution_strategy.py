@@ -156,8 +156,8 @@ class EvolutionStrategy:
 @ex.automain
 def run(generations):
     env = init_env(track_data=load_pickle("track_data.p"))
-    individual =  ParameterizedGeneticAgent().policy_function
-    optimizer = EvolutionStrategy(env=env, model_generator=lambda: ParameterizedGeneticAgent(individual=deepcopy(individual)))
+    individual =  ParameterizedGeneticAgent()
+    optimizer = EvolutionStrategy(env=env, model_generator=lambda: deepcopy(individual))
 
     best_models = optimizer.run(generations)
     print(len(best_models))
