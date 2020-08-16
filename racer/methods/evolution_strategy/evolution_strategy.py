@@ -7,14 +7,14 @@ from racer.car_racing_env import car_racing_env, get_env, init_env
 from racer.models.agent import Agent
 from racer.utils import setup_sacred_experiment, load_pickle
 from racer.models.simple_nn import SimpleNN, simple_nn, NNAgent
-from racer.models.parameterized_genetic_agent import ParameterizedGeneticAgent
+from racer.models.parameterized_genetic_agent import ParameterizedGeneticAgent, parameterized_genetic
 from racer.methods.method import Method
 from racer.utils import flatten_parameters, build_parameters
 import random
 import numpy as np
 import functools
 
-ex = Experiment("evolution_strategy", ingredients=[car_racing_env, simple_nn],)
+ex = Experiment("evolution_strategy", ingredients=[car_racing_env, simple_nn, parameterized_genetic],)
 setup_sacred_experiment(ex)
 
 
