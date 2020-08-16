@@ -16,10 +16,15 @@ def genetic_config():
 
 class ParameterizedGeneticAgent(GeneticAgent):
     @parameterized_genetic.capture
-    def __init__(self, individual_fname):
-        parameterized_policy = ParameterizedIndividual.from_pickled_individual(
-            individual_fname
-        )
+    def __init__(self, individual_fname, individual=None):
+        if individual is not None:
+            parameterized_policy = ParameterizedIndividual.from_individual(
+                individual
+            )
+        else:
+            parameterized_policy = ParameterizedIndividual.from_pickled_individual(
+                individual_fname
+            )
         super(ParameterizedGeneticAgent, self).__init__(
             policy_function=parameterized_policy
         )

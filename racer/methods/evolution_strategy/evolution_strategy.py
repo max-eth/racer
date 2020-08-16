@@ -1,6 +1,7 @@
 from sacred import Experiment
 import tempfile
 import os
+from copy import deepcopy
 from tqdm import tqdm
 
 from racer.car_racing_env import car_racing_env, get_env, init_env
@@ -155,7 +156,8 @@ class EvolutionStrategy:
 @ex.automain
 def run(generations):
     env = init_env(track_data=load_pickle("track_data.p"))
-    optimizer = EvolutionStrategy(env=env, model_generator=(lambda: ParameterizedGeneticAgent()))
+    individual =  ParameterizedGeneticAgent().policy_function
+    optimizer = EvolutionStrategy(env=env, model_generator=lambda: ParameterizedGeneticAgent(individual=deepcopy(individual)))
 
     best_models = optimizer.run(generations)
     print(len(best_models))
