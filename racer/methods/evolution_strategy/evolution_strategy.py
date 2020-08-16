@@ -20,13 +20,13 @@ setup_sacred_experiment(ex)
 
 @ex.config
 def cfg():
-    mutation_rate = 0.05 #0.1 0.5
+    mutation_rate = 0.1 #0.1 0.5
     parent_selec_strat = "truncation"
     children_selec_strat = "n_plus_lambda"
     population_size = 200
     num_children = 100 #50
     generations = 600
-    gauss_std = 0.1
+    gauss_std = 0.5
     parallel = False
 
 
@@ -61,11 +61,19 @@ class EvolutionStrategy:
         self.children_selec_strat = children_selec_strat
         self.gauss_std = gauss_std
         self.env = env
-        for _ in tqdm(range(self.N), desc="Initializing population"):
+        models = []
+        for _ in range(self.N):
             model = model_generator()
-            self.env.reset(regen_track=False)
-            model_fitness = model.evaluate(env)
-            self.add_model(model, model_fitness)
+            models.append(model)
+
+        if self.parallel:
+            models_fitness = Agent.parallel_evaluate(models)
+        else:
+            models_fitness = [agent.evaluate(env) for agent in models]
+
+        for model, fitness in zip(models, models_fitness):
+            self.add_model(model, fitness)
+
 
     def step(self):
         mutated_children = self.generate_children(self.select_parents())
