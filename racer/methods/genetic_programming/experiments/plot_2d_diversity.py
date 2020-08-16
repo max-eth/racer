@@ -18,7 +18,7 @@ args = parser.parse_args()
 
 scalar = "Best ever fitness"
 
-actual_ex_name = "genetic_programming"
+actual_ex_name = "genetic programming"
 
 
 for run_name in os.listdir(args.path):
