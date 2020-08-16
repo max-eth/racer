@@ -13,11 +13,12 @@ parser.add_argument("--scalar", help="the scalar to plot", default="fitness")
 parser.add_argument("--skip_plot", action="store_true")
 parser.add_argument("--smooth", action="store_true")
 parser.add_argument("--logy", help="log scale for y axis", action="store_true")
+parser.add_argument("--three", help="plot the first 3 runs", action="store_true")
 
 args = parser.parse_args()
 
 
-for i in range(1, 5):
+for i in range(1, 4 if args.three else 5):
     metrics = json.load(open(os.path.join(args.path + "-" + str(i),  "1", "metrics.json"), "r"))
     print(i, "Best: ", max(metrics[args.scalar]["values"]))
 

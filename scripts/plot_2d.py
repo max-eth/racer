@@ -26,7 +26,7 @@ for run_name in os.listdir(args.path):
     run = json.load(open(args.path + "/" + run_name + "/1/run.json", 'r'))
     metrics = json.load(open(args.path + "/" + run_name + "/1/metrics.json", 'r'))
     ex_name = run["experiment"]["name"]
-    if ex_name == arg.ex_name:
+    if ex_name == args.ex_name:
         data[(config[args.x], config[args.y])].append(max(metrics[args.scalar]["values"]))
 
 x, y, z = [], [], []
