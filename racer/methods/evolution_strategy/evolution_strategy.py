@@ -138,7 +138,7 @@ class EvolutionStrategy:
                     np.random.normal()
 
                     parent_params[i] += gaussian_noise
-            child.set_flat_parameters(self.parameter_shapes, parent_params)
+            child.set_flat_parameters(parent_params)
             children_models.append(child)
         if self.parallel:
             children_fitness = Agent.parallel_evaluate(children_models)
