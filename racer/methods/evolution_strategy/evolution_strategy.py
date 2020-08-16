@@ -26,8 +26,8 @@ def cfg():
     population_size = 200
     num_children = 100 #50
     generations = 600
-    gauss_std = 0.5
-    random_init_std = 1
+    gauss_std = 0.1
+    random_init_std = 0.1
     parallel = False
 
 
