@@ -567,7 +567,7 @@ class CarRacingWrapper(gym.envs.box2d.car_racing.CarRacing):
         horiz_ind(30, -0.8 * focus_car.hull.angularVelocity, (1, 0, 0))
         gl.glEnd()
         self.score_label.text = "R: %04i" % self.reward
-        self.score_label.draw()
+        #self.score_label.draw()
 
         if self.last_action is not None:
             self.gas_label.text = "G:{0:.2f}".format(self.last_action[1])

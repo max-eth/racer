@@ -7,12 +7,13 @@ from racer.utils import build_parameters, flatten_parameters
 from racer.utils import setup_sacred_experiment, load_pickle
 
 ex = Experiment("visualize_nn_weights", ingredients=[car_racing_env, simple_nn],)
-setup_sacred_experiment(ex, mongo=False)
+setup_sacred_experiment(ex)
 
 
 @ex.config
 def vis_config():
-    weights = "weights.npy"
+    weights1 = "best278"
+    weights2 = "best293"
     track = "track_data.p"
 
 
@@ -21,11 +22,17 @@ def vis_config():
 # Afterwards run ./create_video.sh and enjoy the video in tmp/frames
 @ex.automain
 @ex.capture
-def run(weights, track):
+def run(weights1, weights2, track):
 
-    model_weights = np.load(weights)
-    agent = NNAgent()
-    shapes = [s.shape for s in agent.parameters()]
-    agent.set_parameters(build_parameters(shapes, model_weights))
+    model_weights1 = np.load(weights1)
+    model_weights2 = np.load(weights2)
+    agent1 = NNAgent()
+    shapes = [s.shape for s in agent1.parameters()]
+    agent1.set_parameters(build_parameters(shapes, model_weights1))
+    agent2 = NNAgent()
+    shapes = [s.shape for s in agent2.parameters()]
+    agent2.set_parameters(build_parameters(shapes, model_weights2))
     env = init_env(track_data=load_pickle(track))
-    print(agent.evaluate(env, True, False))
+    agent1.race(env, [agent1, agent2], 1)
+
+   # print(agent.evaluate(env, True, False))

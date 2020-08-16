@@ -13,7 +13,7 @@ parser.add_argument("path", help="the path to the logs folder")
 parser.add_argument("ex_name", help="experiment name")
 parser.add_argument("x", help="the x axis config value")
 parser.add_argument("y", help="the y axis config value")
-parser.add_argument("--scalar", help="the scalar to plot", default="fitness")
+parser.add_argument("--scalar", help="the scalar to plot", default="best_model")
 parser.add_argument("--logx", help="use log scale for x axis", action="store_true")
 parser.add_argument("--logy", help="use log scale for y axis", action="store_true")
 parser.add_argument("--mean", help="plot the mean scores", action="store_true")
@@ -26,7 +26,9 @@ for run_name in os.listdir(args.path):
     run = json.load(open(args.path + "/" + run_name + "/1/run.json", 'r'))
     metrics = json.load(open(args.path + "/" + run_name + "/1/metrics.json", 'r'))
     ex_name = run["experiment"]["name"]
-    if ex_name == arg.ex_name:
+    if ex_name == args.ex_name:
+        if not config["children_selec_strat"] == "lambda" or config["parent_selec_strat"] == "random":
+            continue
         data[(config[args.x], config[args.y])].append(max(metrics[args.scalar]["values"]))
 
 x, y, z = [], [], []
@@ -62,7 +64,7 @@ if args.logy:
     ax.set_yscale('log')
 if args.title is not None:
     ax.set_title(args.title)
-ax.set_xlabel(args.x)
+ax.set_xlabel("sigma")
 ax.set_ylabel(args.y)
 #ax.set(xlim=(-2, 2), ylim=(-2, 2))
 

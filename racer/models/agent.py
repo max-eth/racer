@@ -52,7 +52,7 @@ class Agent(ABC):
             if neg_reward_count > 100:
                 # stop early
                 break
-            env.render(mode="human")
+            env.render(mode="human", store_frames=True)
         env.focus_car = 0
         env.reset(regen_track=False, num_cars=old_num_cars)
 
