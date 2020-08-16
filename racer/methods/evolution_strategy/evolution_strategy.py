@@ -68,7 +68,7 @@ class EvolutionStrategy:
             model = model_generator()
             if random_init_std > 0:
                 params = model.get_flat_parameters()
-                params = np.random.normal(params, size=random_init_std)
+                params = np.random.normal(params, scale=random_init_std)
                 model.set_flat_parameters(params)
 
             models.append(model)
