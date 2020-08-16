@@ -41,7 +41,7 @@ def experiment_config():
 
     # tree gen config
     operators = building_blocks.named_operators
-    gen_val = building_blocks.gen_val if gen_gauss else random.choice([1, 2, 3])
+    gen_val = building_blocks.gen_val if gen_gauss else lambda: random.choice([1, 2, 3])
     min_height = 6
     max_height = 8
     p_gen_op, p_gen_arg, p_gen_const = 0.7, 0.25, 0.05
