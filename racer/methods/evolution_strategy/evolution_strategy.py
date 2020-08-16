@@ -27,6 +27,7 @@ def cfg():
     num_children = 100 #50
     generations = 600
     gauss_std = 0.5
+    random_init_std = 1
     parallel = False
 
 
@@ -42,7 +43,8 @@ class EvolutionStrategy:
         population_size,
         num_children,
         gauss_std,
-        parallel
+        parallel,
+        random_init_std,
     ):
         assert 0 < mutation_rate <= 1
         assert parent_selec_strat in ["random", "roulette", "tournament", "truncation"]
@@ -64,6 +66,11 @@ class EvolutionStrategy:
         models = []
         for _ in range(self.N):
             model = model_generator()
+            if random_init_std > 0:
+                params = model.get_flat_parameters()
+                params = np.random.normal(params, size=random_init_std)
+                model.set_flat_parameters(params)
+
             models.append(model)
 
         if self.parallel:
