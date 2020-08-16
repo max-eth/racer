@@ -10,7 +10,6 @@ from racer.utils import setup_sacred_experiment, load_pickle
 from racer.models.simple_nn import SimpleNN, simple_nn, NNAgent
 from racer.models.parameterized_genetic_agent import ParameterizedGeneticAgent, parameterized_genetic
 from racer.methods.method import Method
-from racer.utils import flatten_parameters, build_parameters
 import random
 import numpy as np
 import functools
@@ -67,9 +66,6 @@ class EvolutionStrategy:
             self.env.reset(regen_track=False)
             model_fitness = model.evaluate(env)
             self.add_model(model, model_fitness)
-        self.parameter_shapes = [
-            params.shape for params in self.current_population[0][0].parameters()
-        ]
 
     def step(self):
         mutated_children = self.generate_children(self.select_parents())
@@ -104,7 +100,7 @@ class EvolutionStrategy:
                 fname = os.path.join(run_dir_path, "best{}.npy".format(i))
                 np.save(
                     fname,
-                    flatten_parameters(self.current_population[-1][0].parameters()),
+                    self.current_population[-1][0].get_flat_parameters(),
                 )
                 _run.add_artifact(fname, name="best{}".format(i))
                 self.env.reset(regen_track=False)
@@ -135,16 +131,14 @@ class EvolutionStrategy:
         children_models = []
         for parent_index in parents:
             child = self.model_generator()
-            parent_params = flatten_parameters(
-                self.current_population[parent_index][0].parameters()
-            )
+            parent_params = self.current_population[parent_index][0].get_flat_parameters()
             for i in range(len(parent_params)):
                 if random.random() < self.mutation_rate:
                     gaussian_noise = np.random.normal(0, self.gauss_std)
                     np.random.normal()
 
                     parent_params[i] += gaussian_noise
-            child.set_parameters(build_parameters(self.parameter_shapes, parent_params))
+            child.set_flat_parameters(self.parameter_shapes, parent_params)
             children_models.append(child)
         if self.parallel:
             children_fitness = Agent.parallel_evaluate(children_models)
