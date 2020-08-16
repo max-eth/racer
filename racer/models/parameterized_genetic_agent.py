@@ -11,7 +11,7 @@ parameterized_genetic = Ingredient(
 
 @parameterized_genetic.config
 def genetic_config():
-    individual_fname = "best_85.pkl"  # from experiment 413
+    individual_fname = "best_99.pkl"  # from experiment 413
 
 
 class ParameterizedGeneticAgent(GeneticAgent):

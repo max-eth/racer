@@ -4,8 +4,10 @@ import os
 from tqdm import tqdm
 
 from racer.car_racing_env import car_racing_env, get_env, init_env
+from racer.models.agent import Agent
 from racer.utils import setup_sacred_experiment, load_pickle
 from racer.models.simple_nn import SimpleNN, simple_nn, NNAgent
+from racer.models.parameterized_genetic_agent import ParameterizedGeneticAgent
 from racer.methods.method import Method
 from racer.utils import flatten_parameters, build_parameters
 import random
@@ -18,13 +20,13 @@ setup_sacred_experiment(ex)
 
 @ex.config
 def cfg():
-    mutation_rate = 0.3 #0.1 0.5
+    mutation_rate = 0.05 #0.1 0.5
     parent_selec_strat = "truncation"
     children_selec_strat = "n_plus_lambda"
     population_size = 200
     num_children = 100 #50
     generations = 600
-    gauss_std = 0.5
+    gauss_std = 0.1
     parallel = False
 
 
@@ -144,7 +146,7 @@ class EvolutionStrategy:
             child.set_parameters(build_parameters(self.parameter_shapes, parent_params))
             children_models.append(child)
         if self.parallel:
-            children_fitness = NNAgent.parallel_evaluate(children_models)
+            children_fitness = Agent.parallel_evaluate(children_models)
         else:
             children_fitness = [agent.evaluate(self.env, visible=False) for agent in children_models]
         return zip(children_models, children_fitness)
@@ -153,7 +155,7 @@ class EvolutionStrategy:
 @ex.automain
 def run(generations):
     env = init_env(track_data=load_pickle("track_data.p"))
-    optimizer = EvolutionStrategy(env=env, model_generator=(lambda: NNAgent()))
+    optimizer = EvolutionStrategy(env=env, model_generator=(lambda: ParameterizedGeneticAgent()))
 
     best_models = optimizer.run(generations)
     print(len(best_models))
