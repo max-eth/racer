@@ -147,13 +147,15 @@ class EvolutionStrategy:
         for parent_index in parents:
             child = self.model_generator()
             parent_params = self.current_population[parent_index][0].get_flat_parameters()
-            for i in range(len(parent_params)):
-                if random.random() < self.mutation_rate:
-                    gaussian_noise = np.random.normal(0, self.gauss_std)
-                    np.random.normal()
 
-                    parent_params[i] += gaussian_noise
-            child.set_flat_parameters(parent_params)
+            randomized_params = np.random.normal(0, scale=self.gauss_std, size=parent_params.shape)
+
+            mask = np.zeros_like(randomized_params)
+            mask[np.random.rand(*randomized_params.shape) < self.mutation_rate] = 1
+
+            randomized_params *= mask
+
+            child.set_flat_parameters(randomized_params + parent_params)
             children_models.append(child)
         if self.parallel:
             children_fitness = Agent.parallel_evaluate(children_models)
