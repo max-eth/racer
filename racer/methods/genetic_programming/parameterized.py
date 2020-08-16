@@ -88,4 +88,4 @@ class ParameterizedIndividual:
         for tree in self.parameterized_trees:
             for node in tree.in_order():
                 params += node.get_params()
-        return np.array(params)
+        return np.array(params, dtype=np.float32)
