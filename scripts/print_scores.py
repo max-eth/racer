@@ -25,4 +25,4 @@ for metric_name in data:
     sorted_data = sorted(data[metric_name], key=lambda x: max(data[metric_name][x]))
     for key in sorted_data:
         print(key, metric_name, "max:", max(data[metric_name][key]), "mean:", sum(data[metric_name][key])/len(data[metric_name][key]))
-        print(key, metric_name, "vals:", data[metric_name[key]])
+        print(key, metric_name, "vals:", data[metric_name][key])
