@@ -62,7 +62,7 @@ class EvolutionStrategy:
         self.children_selec_strat = children_selec_strat
         self.gauss_std = gauss_std
         self.env = env
-        for _ in range(self.N):
+        for _ in tqdm(range(self.N), desc="Initializing population"):
             model = model_generator()
             self.env.reset(regen_track=False)
             model_fitness = model.evaluate(env)
