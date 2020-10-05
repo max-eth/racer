@@ -1,8 +1,10 @@
 # racer
+Black-box, gradient-free optimization of car-racing policies.
+## Example Race
+Our best performing agent, the tuned genetic program (red) races against the untuned genetic program (blue).
 ![demo](https://github.com/max-eth/racer/blob/master/videos/race.gif)
 
-Black-box, gradient-free optimization of car-racing policies.
-
+## Inference Pipeline
 ![overview](https://github.com/max-eth/racer/blob/master/.readme/overview.png?raw=true)
 
 ## Results
