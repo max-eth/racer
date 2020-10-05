@@ -1,6 +1,8 @@
 # racer
 Black-box, gradient-free optimization of car-racing policies.
 
+![overview](https://github.com/max-eth/racer/blob/master/.readme/overview.png?raw=true)
+
 ## Results
 | Method Name                                        | Max Reward |    Mean Reward | Mean # Function evaluations to reach 900 |
 |----------------------------------------------------|-----------:|---------------:|-----------------------------------------:|
