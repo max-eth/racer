@@ -4,7 +4,10 @@ from racer.car_racing_env import car_racing_env, get_env, init_env
 from racer.models.genetic_agent import GeneticAgent, genetic
 from racer.utils import setup_sacred_experiment, load_pickle
 
-ex = Experiment("visualize_genetic", ingredients=[car_racing_env, genetic],)
+ex = Experiment(
+    "visualize_genetic",
+    ingredients=[car_racing_env, genetic],
+)
 setup_sacred_experiment(ex, mongo=False)
 
 

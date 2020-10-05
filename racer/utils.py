@@ -72,6 +72,7 @@ def load_pixels(get_dimensions=False):
     else:
         return pixels
 
+
 def setup_mongo(ex):
     try:
         with open("credentials.txt") as f:
@@ -92,7 +93,7 @@ def setup_mongo(ex):
 
 def setup_sacred_experiment(ex: sacred.Experiment):
 
-    #setup_mongo(ex)
+    # setup_mongo(ex)
 
     ex.captured_out_filter = apply_backspaces_and_linefeeds
 

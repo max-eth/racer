@@ -13,10 +13,10 @@ args = parser.parse_args()
 data = defaultdict(lambda: defaultdict(list))
 
 for run_name in os.listdir(args.path):
-    config = json.load(open(args.path + "/" + run_name + "/1/config.json", 'r'))
-    run = json.load(open(args.path + "/" + run_name + "/1/run.json", 'r'))
-    metrics = json.load(open(args.path + "/" + run_name + "/1/metrics.json", 'r'))
-    
+    config = json.load(open(args.path + "/" + run_name + "/1/config.json", "r"))
+    run = json.load(open(args.path + "/" + run_name + "/1/run.json", "r"))
+    metrics = json.load(open(args.path + "/" + run_name + "/1/metrics.json", "r"))
+
     for metric_name in metrics:
         ex_name = run["experiment"]["name"]
         data[metric_name][run_name[:-2]].append(max(metrics[metric_name]["values"]))
@@ -24,4 +24,11 @@ for run_name in os.listdir(args.path):
 for metric_name in data:
     sorted_data = sorted(data[metric_name], key=lambda x: max(data[metric_name][x]))
     for key in sorted_data:
-        print(key, metric_name, "max:", max(data[metric_name][key]), "mean:", sum(data[metric_name][key])/len(data[metric_name][key]))
+        print(
+            key,
+            metric_name,
+            "max:",
+            max(data[metric_name][key]),
+            "mean:",
+            sum(data[metric_name][key]) / len(data[metric_name][key]),
+        )

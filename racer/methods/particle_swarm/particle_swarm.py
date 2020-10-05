@@ -10,7 +10,10 @@ from racer.car_racing_env import car_racing_env, get_env, init_env
 from racer.models.simple_nn import simple_nn, NNAgent
 from racer.utils import setup_sacred_experiment, load_pickle
 
-ex = Experiment("particle_swarm", ingredients=[car_racing_env, simple_nn],)
+ex = Experiment(
+    "particle_swarm",
+    ingredients=[car_racing_env, simple_nn],
+)
 setup_sacred_experiment(ex)
 
 
@@ -46,7 +49,9 @@ class Particle:
 
     @ex.capture
     def __init__(
-        self, global_best_bias, own_best_bias,
+        self,
+        global_best_bias,
+        own_best_bias,
     ):
         self.global_best_bias = global_best_bias
         self.own_best_bias = own_best_bias
@@ -152,7 +157,8 @@ class PSO:
             if self.best_fitness > last_best_fitness:
                 fname = os.path.join(run_dir_path, "best{}.npy".format(i))
                 np.save(
-                    fname, self.best_parameters,
+                    fname,
+                    self.best_parameters,
                 )
                 _run.add_artifact(fname, name="best{}".format(i))
                 self.env.reset(regen_track=False)

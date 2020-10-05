@@ -5,7 +5,9 @@ import os
 import json
 
 
-parser = argparse.ArgumentParser(description="count the number of iterations until 900 was reached")
+parser = argparse.ArgumentParser(
+    description="count the number of iterations until 900 was reached"
+)
 parser.add_argument("path", help="the path to the logs folder")
 parser.add_argument("--scalar", help="the scalar to measure", default="fitness")
 args = parser.parse_args()
@@ -14,7 +16,9 @@ vals = []
 steps = []
 
 for i in range(1, 5):
-    metrics = json.load(open(os.path.join(args.path + "-" + str(i),  "1", "metrics.json"), "r"))
+    metrics = json.load(
+        open(os.path.join(args.path + "-" + str(i), "1", "metrics.json"), "r")
+    )
     best = max(metrics[args.scalar]["values"])
     print(i, "Best: ", best)
     vals.append(best)

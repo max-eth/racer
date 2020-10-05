@@ -420,7 +420,9 @@ class CarRacingWrapper(gym.envs.box2d.car_racing.CarRacing):
         img = self.track_imgs[int(math.degrees(-car.hull.angle)) % 360]
 
         crop = img[
-            car_x - 24 : car_x + 8, car_y - 16 : car_y + 16, :,
+            car_x - 24 : car_x + 8,
+            car_y - 16 : car_y + 16,
+            :,
         ]
 
         if self.render_view:
@@ -696,6 +698,7 @@ class CarRacingWrapper(gym.envs.box2d.car_racing.CarRacing):
                 np.square(car.hull.linearVelocity[0])
                 + np.square(car.hull.linearVelocity[1])
             )
+            print(linear_speed)
             vectors.append(np.array([linear_speed]))
 
         if self.enable_angular_speed:

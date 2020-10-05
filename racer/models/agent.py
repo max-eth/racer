@@ -16,10 +16,10 @@ class Agent(ABC):
 
     @staticmethod
     def parallel_evaluate(agents):
-        """ Evaluate a list of agents on an environment in parallel.
+        """Evaluate a list of agents on an environment in parallel.
 
-            :param agents: the list of agents
-            :return: a list of floats corresponding to the evaluation results of the agents
+        :param agents: the list of agents
+        :return: a list of floats corresponding to the evaluation results of the agents
         """
         if Agent.pool is None:
             print("creating new pool")
@@ -29,10 +29,10 @@ class Agent(ABC):
 
     @staticmethod
     def race(env, agents, focus_agent):
-        """ Race multiple agents together
+        """Race multiple agents together
 
-            :param agents: the list of agents
-            :param focus_agent: the index of the agent to focus on
+        :param agents: the list of agents
+        :param focus_agent: the index of the agent to focus on
         """
         old_num_cars = env.num_cars
         env.reset(regen_track=False, num_cars=len(agents))
@@ -58,16 +58,16 @@ class Agent(ABC):
 
     @abstractmethod
     def act(self, image, other) -> np.ndarray:
-        """ Perform an action. Should return an ndarray ``result`` with shape ``(3,)``, where
-            result[0] = steering (range [-1, 1])
-            result[1] = gas (range [0, 1])
-            result[2] = brake (range [0, 1])
+        """Perform an action. Should return an ndarray ``result`` with shape ``(3,)``, where
+        result[0] = steering (range [-1, 1])
+        result[1] = gas (range [0, 1])
+        result[2] = brake (range [0, 1])
         """
         ...
 
     def evaluate(self, env, visible=False, store_frames=False, car_id=0) -> float:
-        """ Evaluate this agent on the environment, and return its fitness
-            :param visible: whether to render the run in a window
+        """Evaluate this agent on the environment, and return its fitness
+        :param visible: whether to render the run in a window
         """
         env.reset(regen_track=False)
 

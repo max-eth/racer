@@ -19,7 +19,9 @@ args = parser.parse_args()
 
 
 for i in range(1, 4 if args.three else 5):
-    metrics = json.load(open(os.path.join(args.path + "-" + str(i),  "1", "metrics.json"), "r"))
+    metrics = json.load(
+        open(os.path.join(args.path + "-" + str(i), "1", "metrics.json"), "r")
+    )
     print(i, "Best: ", max(metrics[args.scalar]["values"]))
 
     x = np.array(metrics[args.scalar]["steps"])
@@ -33,7 +35,7 @@ for i in range(1, 4 if args.three else 5):
         plt.plot(x, y, label="Repetition " + str(i))
 
 if args.logy:
-    plt.yscale('log')
+    plt.yscale("log")
 
 plt.xlabel("Iteration (step)")
 plt.ylabel("Fitness (smoothed)" if args.smooth else "Fitness")

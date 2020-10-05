@@ -11,7 +11,10 @@ from racer.car_racing_env import car_racing_env, get_env, get_track_data, init_e
 from racer.models.simple_nn import simple_nn, NNAgent
 from racer.utils import setup_sacred_experiment, load_pickle, write_pickle
 
-ex = Experiment("nelder_mead", ingredients=[car_racing_env, simple_nn],)
+ex = Experiment(
+    "nelder_mead",
+    ingredients=[car_racing_env, simple_nn],
+)
 setup_sacred_experiment(ex)
 
 
@@ -95,7 +98,9 @@ class NelderMead:
             duplicated_parameters = np.tile(
                 self.nns_fitness[0][0].get_flat_parameters(), [self.N, 1]
             )
-            randomized_parameters = np.random.normal(duplicated_parameters, self.gauss_std)
+            randomized_parameters = np.random.normal(
+                duplicated_parameters, self.gauss_std
+            )
             models = []
             for params in randomized_parameters:
                 model = self.model_generator()
@@ -126,7 +131,7 @@ class NelderMead:
 
     def reset_nns(self):
         print("REEEEEEEEEEEEEEEEEEESET")
-        #self.resets += 1
+        # self.resets += 1
         best_model, best_model_fitness = self.nns_fitness.pop()
         nns_fitness_new = [(best_model, best_model_fitness)]
         new_models = []
@@ -212,7 +217,12 @@ class NelderMead:
         while best_models[-1][1] < fitness_goal and self.iteration < max_iterations:
             if self.step():
                 _run.log_scalar("reset", self.nns_fitness[-1][1], self.iteration)
-            print(np.linalg.norm(self.nns_fitness[-1][0].get_flat_parameters()-self.nns_fitness[0][0].get_flat_parameters()))
+            print(
+                np.linalg.norm(
+                    self.nns_fitness[-1][0].get_flat_parameters()
+                    - self.nns_fitness[0][0].get_flat_parameters()
+                )
+            )
             _run.log_scalar("best_model", best_models[-1][1], self.iteration)
             _run.log_scalar(
                 "avg_model",
@@ -223,14 +233,20 @@ class NelderMead:
                 best_models.append(self.nns_fitness[-1])
                 fname = os.path.join(run_dir_path, "best{}.npy".format(self.iteration))
                 np.save(
-                    fname, self.nns_fitness[-1][0].get_flat_parameters(),
+                    fname,
+                    self.nns_fitness[-1][0].get_flat_parameters(),
                 )
                 _run.add_artifact(fname, name="best{}".format(self.iteration))
                 print(self.nns_fitness[-1][0].evaluate(self.env, True))
             elif self.nns_fitness[-1][1] - self.nns_fitness[0][1] < epsilon:
                 # new initialization
                 print("Random REEEEEEEEESTART")
-                print(np.linalg.norm(self.nns_fitness[-1][0].get_flat_parameters()-self.nns_fitness[0][0].get_flat_parameters()))
+                print(
+                    np.linalg.norm(
+                        self.nns_fitness[-1][0].get_flat_parameters()
+                        - self.nns_fitness[0][0].get_flat_parameters()
+                    )
+                )
                 _run.log_scalar("restart", self.nns_fitness[-1][1], self.iteration)
                 model = self.model_generator()
                 self.nns_fitness = [(model, model.evaluate(env=self.env))]

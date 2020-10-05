@@ -15,7 +15,10 @@ from racer.methods.evolution_strategy_walk.optimizers import Adam, SGDMomentum, 
 from racer.models.simple_nn import simple_nn, NNAgent
 from racer.utils import setup_sacred_experiment, load_pickle
 
-ex = Experiment("evolution_strategy_walk", ingredients=[car_racing_env, simple_nn],)
+ex = Experiment(
+    "evolution_strategy_walk",
+    ingredients=[car_racing_env, simple_nn],
+)
 setup_sacred_experiment(ex)
 
 
@@ -137,7 +140,7 @@ class ESW:
             rewards = (rewards.argsort() / (rewards.size - 1)) - 0.5
             assert rewards.sum() < 0.001
         elif self.weighting == "top_k":
-            bot_k_rewards_idx = rewards.argsort()[:-self.top_k]
+            bot_k_rewards_idx = rewards.argsort()[: -self.top_k]
             rewards = np.zeros_like(rewards)
             rewards = (rewards - np.mean(rewards)) / np.std(rewards)
             rewards[bot_k_rewards_idx] = 0
@@ -173,9 +176,7 @@ class ESW:
         #
         # else:
         if self.optimizer is None:
-            self.parameters = (
-                    self.parameters + update
-            )
+            self.parameters = self.parameters + update
         else:
             gradient_estimate = (1.0 / (self.num_evals * self.sigma)) * update
             self.optimizer.update(self.parameters, -gradient_estimate)
@@ -192,12 +193,15 @@ class ESW:
             self.step(i)
             _run.log_scalar("fitness", self.fitness, i)
             _run.log_scalar(
-                "avg_fitness", self.avg_fitness, i,
+                "avg_fitness",
+                self.avg_fitness,
+                i,
             )
             if self.fitness > last_best_fitness:
                 fname = os.path.join(self.temp_path, "best{}.npy".format(i))
                 np.save(
-                    fname, self.parameters,
+                    fname,
+                    self.parameters,
                 )
                 _run.add_artifact(fname, name="best{}".format(i))
                 self.env.reset(regen_track=False)
@@ -224,6 +228,6 @@ def run(iterations, _run):
     env = init_env(track_data=load_pickle("track_data.p"))
     optimizer = ESW(env=env, temp_path=temp_path)
     optimizer.run(iterations)
-    #NNAgent.pool.close()
-    #shutil.rmtree(temp_path, ignore_errors=True)
+    # NNAgent.pool.close()
+    # shutil.rmtree(temp_path, ignore_errors=True)
     return optimizer.fitness

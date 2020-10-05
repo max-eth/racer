@@ -28,10 +28,10 @@ def nn_config():
 
 class ConvNet(nn.Module):
     def __init__(self, *, conv_net_config, in_channels):
-        """ Conv net config is a list of tuples of:
-            - conv kernel size
-            - conv output channel count
-            - pooling size
+        """Conv net config is a list of tuples of:
+        - conv kernel size
+        - conv output channel count
+        - pooling size
         """
         super(ConvNet, self).__init__()
         layers = []
@@ -138,7 +138,9 @@ class NNAgent(Agent):
             in_size = len(pixels) + feature_size()
 
         self.net = SimpleNN(
-            hidden_layers=hidden_layers, hidden_size=hidden_size, in_size=in_size,
+            hidden_layers=hidden_layers,
+            hidden_size=hidden_size,
+            in_size=in_size,
         )
 
     def set_parameters(self, parameters):

@@ -12,17 +12,20 @@ import random
 import numpy as np
 import functools
 
-ex = Experiment("evolution_strategy", ingredients=[car_racing_env, simple_nn],)
+ex = Experiment(
+    "evolution_strategy",
+    ingredients=[car_racing_env, simple_nn],
+)
 setup_sacred_experiment(ex)
 
 
 @ex.config
 def cfg():
-    mutation_rate = 0.3 #0.1 0.5
+    mutation_rate = 0.3  # 0.1 0.5
     parent_selec_strat = "truncation"
     children_selec_strat = "n_plus_lambda"
     population_size = 200
-    num_children = 100 #50
+    num_children = 100  # 50
     generations = 600
     gauss_std = 0.5
     parallel = False
@@ -40,7 +43,7 @@ class EvolutionStrategy:
         population_size,
         num_children,
         gauss_std,
-        parallel
+        parallel,
     ):
         assert 0 < mutation_rate <= 1
         assert parent_selec_strat in ["random", "roulette", "tournament", "truncation"]
@@ -94,7 +97,9 @@ class EvolutionStrategy:
             self.step()
             _run.log_scalar("best_model", best_models[-1][1], i)
             _run.log_scalar(
-                "avg_model", sum([s[1] for s in self.current_population]) / self.N, i,
+                "avg_model",
+                sum([s[1] for s in self.current_population]) / self.N,
+                i,
             )
             if best_models[-1][1] < self.current_population[-1][1]:
                 best_models.append(self.current_population[-1])
@@ -146,7 +151,9 @@ class EvolutionStrategy:
         if self.parallel:
             children_fitness = NNAgent.parallel_evaluate(children_models)
         else:
-            children_fitness = [agent.evaluate(self.env, visible=False) for agent in children_models]
+            children_fitness = [
+                agent.evaluate(self.env, visible=False) for agent in children_models
+            ]
         return zip(children_models, children_fitness)
 
 

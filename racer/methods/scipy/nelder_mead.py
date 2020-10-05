@@ -5,7 +5,10 @@ from racer.utils import setup_sacred_experiment, flatten_parameters, build_param
 from racer.models.simple_nn import NNAgent, simple_nn
 from scipy.optimize import minimize
 
-ex = Experiment("scipy_nelder_mead", ingredients=[car_racing_env, simple_nn],)
+ex = Experiment(
+    "scipy_nelder_mead",
+    ingredients=[car_racing_env, simple_nn],
+)
 setup_sacred_experiment(ex)
 
 

@@ -32,7 +32,10 @@ def image_size():
 
 @car_racing_env.capture
 def feature_size(
-    enable_abs, enable_linear_speed, enable_angular_speed, enable_steering,
+    enable_abs,
+    enable_linear_speed,
+    enable_angular_speed,
+    enable_steering,
 ):
     """ The length of the environment features """
     total_length = 0
@@ -54,7 +57,10 @@ def feature_size(
 
 @car_racing_env.capture
 def feature_names(
-    enable_abs, enable_linear_speed, enable_angular_speed, enable_steering,
+    enable_abs,
+    enable_linear_speed,
+    enable_angular_speed,
+    enable_steering,
 ):
     names = (
         []

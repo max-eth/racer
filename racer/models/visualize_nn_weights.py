@@ -6,7 +6,10 @@ from racer.models.simple_nn import simple_nn, NNAgent
 from racer.utils import build_parameters, flatten_parameters
 from racer.utils import setup_sacred_experiment, load_pickle
 
-ex = Experiment("visualize_nn_weights", ingredients=[car_racing_env, simple_nn],)
+ex = Experiment(
+    "visualize_nn_weights",
+    ingredients=[car_racing_env, simple_nn],
+)
 setup_sacred_experiment(ex, mongo=False)
 
 
