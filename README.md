@@ -1,4 +1,6 @@
 # racer
+![demo](https://github.com/max-eth/racer/blob/master/videos/race.gif)
+
 Black-box, gradient-free optimization of car-racing policies.
 
 ![overview](https://github.com/max-eth/racer/blob/master/.readme/overview.png?raw=true)
